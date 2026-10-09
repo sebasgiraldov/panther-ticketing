@@ -1,0 +1,23 @@
+[versions]
+springBoot   = "4.1.0-RC1"
+awssdk       = "2.29.52"
+archunit     = "1.3.0"
+reactor-core = "3.7.6"
+jacoco       = "0.8.12"
+junit        = "5.12.2"
+mockito      = "5.14.2"
+
+[libraries]
+boot-starter-webflux = { module = "org.springframework.boot:spring-boot-starter-webflux" }
+boot-actuator        = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+boot-test            = { module = "org.springframework.boot:spring-boot-starter-test" }
+reactor-core         = { module = "io.projectreactor:reactor-core", version.ref = "reactor-core" }
+reactor-test         = { module = "io.projectreactor:reactor-test" }
+awssdk-dynamodb      = { module = "software.amazon.awssdk:dynamodb", version.ref = "awssdk" }
+awssdk-sqs           = { module = "software.amazon.awssdk:sqs", version.ref = "awssdk" }
+awssdk-netty         = { module = "software.amazon.awssdk:netty-nio-client", version.ref = "awssdk" }
+archunit             = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+slf4j-api            = { module = "org.slf4j:slf4j-api" }
+jackson-databind     = { module = "tools.jackson.core:jackson-databind" }
+junit-jupiter        = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+mockito-junit        = { module = "org.mockito:mockito-junit-jupiter", version.ref = "mockito" }

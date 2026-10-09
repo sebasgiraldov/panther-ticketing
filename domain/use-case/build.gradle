@@ -1,0 +1,5 @@
+// domain/use-case — depends only on model + ports
+dependencies {
+    implementation project(':model')
+    implementation project(':ports')
+}

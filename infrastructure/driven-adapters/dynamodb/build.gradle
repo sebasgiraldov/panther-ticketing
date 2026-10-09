@@ -1,0 +1,8 @@
+dependencies {
+    implementation project(':model')
+    implementation project(':ports')
+    implementation libs.boot.starter.webflux
+    implementation libs.awssdk.dynamodb
+    implementation libs.awssdk.netty
+    implementation libs.jackson.databind
+}

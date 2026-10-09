@@ -1,0 +1,29 @@
+apply plugin: 'org.springframework.boot'
+
+dependencies {
+    implementation project(':model')
+    implementation project(':ports')
+    implementation project(':use-case')
+    implementation project(':reactive-web')
+    implementation project(':dynamodb')
+    implementation project(':sqs')
+    implementation project(':helpers')
+    implementation libs.boot.starter.webflux
+    implementation libs.boot.actuator
+    testImplementation libs.archunit
+}
+
+jar { enabled = false }
+
+bootJar {
+    archiveFileName = "app.${archiveExtension.get()}"
+}
+
+tasks.register('architectureTest', Test) {
+    description = "Runs architecture tests"
+    group = "verification"
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching "*ArchitectureTest" }
+}

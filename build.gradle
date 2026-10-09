@@ -1,0 +1,74 @@
+plugins {
+    id 'org.springframework.boot' version '4.1.0-RC1' apply false
+    id 'jacoco'
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'jacoco'
+
+    java {
+        sourceCompatibility = JavaVersion.VERSION_25
+        targetCompatibility = JavaVersion.VERSION_25
+    }
+
+    dependencies {
+        implementation platform("org.springframework.boot:spring-boot-dependencies:4.1.0-RC1")
+        implementation libs.reactor.core
+        implementation libs.slf4j.api
+        testImplementation libs.boot.test
+        testImplementation libs.reactor.test
+        testImplementation libs.junit.jupiter
+        testImplementation libs.mockito.junit
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+
+    jacocoTestReport {
+        dependsOn test
+        reports {
+            html.required = true
+            xml.required = true
+        }
+        afterEvaluate {
+            classDirectories.setFrom(files(classDirectories.files.collect {
+                fileTree(dir: it, exclude: [
+                    '**/config/**', '**/MainApplication.class',
+                    '**/*Config.class', '**/dto/**', '**/mapper/**',
+                    '**/model/**', '**/entity/**', '**/enums/**'
+                ])
+            }))
+        }
+    }
+
+    jacocoTestCoverageVerification {
+        dependsOn jacocoTestReport
+        onlyIf { file("${project.projectDir}/src/test/java").exists() }
+        afterEvaluate {
+            classDirectories.setFrom(files(classDirectories.files.collect {
+                fileTree(dir: it, exclude: [
+                    '**/config/**', '**/MainApplication.class',
+                    '**/*Config.class', '**/dto/**', '**/mapper/**',
+                    '**/model/**', '**/entity/**', '**/enums/**'
+                ])
+            }))
+        }
+        violationRules {
+            rule {
+                element = 'BUNDLE'
+                limit {
+                    counter = 'LINE'
+                    value = 'COVEREDRATIO'
+                    minimum = 0.90
+                }
+            }
+        }
+    }
+}
+
+tasks.named('wrapper') {
+    gradleVersion = '9.8.1'
+}

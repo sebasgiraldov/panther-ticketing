@@ -1,0 +1,36 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven { url = "https://repo.spring.io/milestone" }
+        maven { url = "https://repo.spring.io/snapshot" }
+    }
+}
+
+dependencyResolutionManagement {
+    repositories {
+        mavenCentral()
+        maven { url = "https://repo.spring.io/milestone" }
+        maven { url = "https://repo.spring.io/snapshot" }
+    }
+}
+
+rootProject.name = 'panther-ticketing'
+
+include "app-service"
+include "model"
+include "ports"
+include "use-case"
+include "reactive-web"
+include "dynamodb"
+include "sqs"
+include "helpers"
+
+project(':app-service').projectDir   = file('applications/app-service')
+project(':model').projectDir         = file('domain/model')
+project(':ports').projectDir         = file('domain/ports')
+project(':use-case').projectDir      = file('domain/use-case')
+project(':reactive-web').projectDir  = file('infrastructure/entry-points/reactive-web')
+project(':dynamodb').projectDir      = file('infrastructure/driven-adapters/dynamodb')
+project(':sqs').projectDir           = file('infrastructure/driven-adapters/sqs')
+project(':helpers').projectDir       = file('infrastructure/helpers')

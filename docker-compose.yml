@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: panther-dynamodb
+    ports:
+      - "8000:8000"
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:8000/shell/ | grep -q DynamoDB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  localstack:
+    image: localstack/localstack:latest
+    container_name: panther-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=sqs
+      - DEFAULT_REGION=us-east-1
+      - AWS_DEFAULT_REGION=us-east-1
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:4566/_localstack/health | grep -q '\"sqs\": \"running\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: panther-ticketing
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
+      - SQS_ENDPOINT=http://localstack:4566
+      - SQS_QUEUE_URL=http://localstack:4566/000000000000/panther-orders
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
