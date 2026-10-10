@@ -20,6 +20,12 @@ bootJar {
     archiveFileName = "app.${archiveExtension.get()}"
 }
 
+// Run the app from the repository root so spring-dotenv finds the .env file
+// (it is read from the process working directory, and the root is where .env lives).
+bootRun {
+    workingDir = rootProject.projectDir
+}
+
 tasks.register('architectureTest', Test) {
     description = "Runs architecture tests"
     group = "verification"

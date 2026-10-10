@@ -57,35 +57,49 @@ panther-ticketing/
 
 ### Prerequisites
 
-- **macOS** (Apple Silicon or Intel).
-- **Homebrew** — the package manager used below. Install from <https://brew.sh> if you don't have it.
 - **Java 25** — required to build and run the app.
-- **Podman** + **podman-compose** — container runtime for the local infra.
+- **Podman** — container runtime for the local infra.
+- **Git**.
 
 ### Install the toolchain
 
+**macOS** (Homebrew — install from <https://brew.sh> if needed):
+
 ```bash
-# Java 25 (Temurin)
-brew install --cask temurin@25
-java -version          # should report 25
-
-# Podman + compose
-brew install podman podman-compose
-
-# Initialise and start the Podman VM (one time)
-podman machine init
+brew install --cask temurin@25     # Java 25
+brew install podman                # container runtime
+podman machine init                # one time
 podman machine start
-podman info             # should succeed once the machine is up
 ```
 
+**Windows** (winget):
+
+```powershell
+winget install EclipseAdoptium.Temurin.25.JDK   # Java 25
+winget install RedHat.Podman                     # container runtime
+podman machine init                              # one time
+podman machine start
+```
+
+Verify: `java -version` reports 25 and `podman info` succeeds once the machine is up.
+The Podman VM stops on reboot — resume it with `podman machine start`.
+
 ### Clone and build
+
+**macOS / Linux**
 
 ```bash
 git clone <repo-url> panther-ticketing
 cd panther-ticketing
-
-# Compile + run the ArchUnit checks + assemble
 ./gradlew build
+```
+
+**Windows (PowerShell)**
+
+```powershell
+git clone <repo-url> panther-ticketing
+cd panther-ticketing
+.\gradlew.bat build
 ```
 
 ## Execution
@@ -120,20 +134,25 @@ Service endpoints once up:
 
 Useful for fast iteration on the app code.
 
-```bash
-# 1. Start only the infra + provisioning
-podman compose up dynamodb-local sqs dynamodb-admin init-resources
+Start only the infra + provisioning (same on every OS):
 
-# 2. Run the app on the host — load .env into the environment FIRST
-set -a && . ./.env && set +a && ./gradlew :app-service:bootRun
+```bash
+podman compose up dynamodb-local sqs dynamodb-admin init-resources
 ```
 
-> **Why load `.env` manually?** The app has **no hardcoded config defaults**: `application.yml`
-> resolves every value with `${ENV_VAR}` and no fallback, and the `DynamoDbConfig` / `SqsConfig`
-> `@Value` fields have no defaults either. `./gradlew :app-service:bootRun` does **not** read `.env`
-> the way `podman compose` does through `env_file`, so running `bootRun` on its own fails to start.
-> `set -a && . ./.env && set +a` exports every variable in `.env` into the shell environment before
-> `bootRun`, giving the app the endpoints, table names, and queue URL it needs.
+Then run the app on the host. The app reads `.env` automatically on startup (via `spring-dotenv`):
+
+**macOS / Linux**
+
+```bash
+./gradlew :app-service:bootRun
+```
+
+**Windows (PowerShell)**
+
+```powershell
+.\gradlew.bat :app-service:bootRun
+```
 
 To stop and reset everything (DynamoDB Local runs `-inMemory`, so data resets):
 
