@@ -3,7 +3,7 @@
 # Local infrastructure bootstrap (DEV ONLY).
 #
 # Creates the DynamoDB tables and the SQS queue(s) the application expects,
-# against DynamoDB Local and LocalStack. This script is idempotent: it skips
+# against DynamoDB Local and ElasticMQ. This script is idempotent: it skips
 # any resource that already exists, so re-running it is safe.
 #
 # ARCHITECTURAL NOTE:
@@ -21,7 +21,7 @@ DYNAMODB_ENDPOINT="${DYNAMODB_ENDPOINT:-http://dynamodb-local:8000}"
 SQS_ENDPOINT="${SQS_ENDPOINT:-http://sqs:9324}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 
-# Dummy creds — DynamoDB Local and LocalStack do not validate them.
+# Dummy creds — DynamoDB Local and ElasticMQ do not validate them.
 export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-dummy}"
 export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-dummy}"
 export AWS_DEFAULT_REGION="${AWS_REGION}"
