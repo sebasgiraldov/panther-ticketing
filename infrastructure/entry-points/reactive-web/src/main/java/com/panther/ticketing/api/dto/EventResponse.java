@@ -1,6 +1,7 @@
 package com.panther.ticketing.api.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public record EventResponse(
@@ -10,5 +11,6 @@ public record EventResponse(
         LocalDateTime date,
         String venue,
         int totalCapacity,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        List<TicketTypeAvailabilityResponse> ticketTypes
 ) {}

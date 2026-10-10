@@ -36,9 +36,15 @@ public class PurchaseTicketsUseCase implements IPurchaseTickets {
 
     @Override
     public Mono<Order> execute(UUID reservationId, String customerRef, String idempotencyKey) {
+        // The idempotency key is optional on the request. When it is absent we fall
+        // back to the reservationId, which gives one order per reservation and keeps
+        // the idempotencyKey GSI key a non-null String (DynamoDB rejects a NULL key).
+        String effectiveKey = (idempotencyKey != null && !idempotencyKey.isBlank())
+                ? idempotencyKey
+                : reservationId.toString();
         // Idempotency: return existing order if already created for this key
-        return orderRepository.findByIdempotencyKey(idempotencyKey)
-                .switchIfEmpty(createAndEnqueue(reservationId, customerRef, idempotencyKey));
+        return orderRepository.findByIdempotencyKey(effectiveKey)
+                .switchIfEmpty(createAndEnqueue(reservationId, customerRef, effectiveKey));
     }
 
     private Mono<Order> createAndEnqueue(UUID reservationId, String customerRef, String idempotencyKey) {

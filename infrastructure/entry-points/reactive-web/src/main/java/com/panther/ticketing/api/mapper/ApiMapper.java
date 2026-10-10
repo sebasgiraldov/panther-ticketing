@@ -2,6 +2,7 @@ package com.panther.ticketing.api.mapper;
 
 import com.panther.ticketing.api.dto.*;
 import com.panther.ticketing.model.event.Event;
+import com.panther.ticketing.model.event.EventDetails;
 import com.panther.ticketing.model.event.InventoryCounter;
 import com.panther.ticketing.model.event.TicketType;
 import com.panther.ticketing.model.order.Order;
@@ -28,7 +29,22 @@ public final class ApiMapper {
 
     public static EventResponse toEventResponse(Event event) {
         return new EventResponse(event.id(), event.name(), event.description(),
-                event.date(), event.venue(), event.totalCapacity(), event.createdAt());
+                event.date(), event.venue(), event.totalCapacity(), event.createdAt(), List.of());
+    }
+
+    public static EventResponse toEventResponse(EventDetails details) {
+        Event event = details.event();
+        List<TicketTypeAvailabilityResponse> ticketTypes = details.ticketTypes().stream()
+                .map(tta -> {
+                    TicketType tt = tta.ticketType();
+                    InventoryCounter counter = tta.availability();
+                    return new TicketTypeAvailabilityResponse(
+                            tt.id(), tt.name(), tt.price(), tt.totalQuantity(),
+                            counter.availableCount(), counter.reservedCount(), counter.soldCount());
+                })
+                .toList();
+        return new EventResponse(event.id(), event.name(), event.description(),
+                event.date(), event.venue(), event.totalCapacity(), event.createdAt(), ticketTypes);
     }
 
     public static AvailabilityResponse toAvailabilityResponse(InventoryCounter counter) {

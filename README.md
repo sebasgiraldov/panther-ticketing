@@ -41,25 +41,50 @@ panther-ticketing/
 
 1. **Reactive end-to-end:** All I/O returns `Mono`/`Flux`. No blocking calls in the hot path.
 2. **Anti-overselling — optimistic locking:** DynamoDB conditional writes (`ConditionExpression` + `version` attribute). No pessimistic locks, no `SELECT FOR UPDATE`.
-3. **Atomic inventory:** Conditional `UpdateItem` keeps `InventoryCounter` and ticket states in sync.
+3. **Inventory counter + individual tickets (consistency trade-off):** Availability is guarded by an aggregate `InventoryCounter` (fast O(1) reads for req 4.7) **and** each ticket is an individual record with its own state. Both are updated with separate conditional writes rather than a single `TransactWriteItems`. The counter is the authoritative anti-overselling guard, so **overselling is impossible** even if the two updates interleave. However, if the process crashes *between* the counter update and the ticket-state update, the two can be momentarily inconsistent (e.g. counter says reserved but a ticket is still AVAILABLE). This is an accepted trade-off for this scope:
+   - **Why accepted:** the counter — not the ticket records — is the gate that prevents overselling, so the invariant that matters (never sell more than capacity) always holds. The reservation-expiry scheduler also reconciles orphaned states over time.
+   - **Production hardening:** wrap the counter adjustment + ticket transitions in a single DynamoDB `TransactWriteItems` (atomic, with per-item conditions). Limited to 100 items/transaction, which is fine for the ≤10-tickets-per-purchase cap. This was deliberately left as documented future work to keep the first iteration simple.
 4. **Async purchase flow:** `POST /orders` enqueues to SQS and returns `orderId` immediately (202 Accepted). A long-polling consumer processes asynchronously.
 5. **Idempotency:** Consumer checks order status before mutating; `idempotencyKey` prevents duplicate orders.
 6. **At-least-once SQS:** Standard queue (not FIFO). Consumer deletes message only on success; on error, visibility timeout re-delivers. DLQ recommended for production.
 7. **Reservation expiry:** Scheduler runs every 60 s, releases `RESERVED → AVAILABLE` with conditional writes — safe under concurrent execution.
 8. **Ticket states:** `AVAILABLE → RESERVED → PENDING_CONFIRMATION → SOLD` (final). `COMPLIMENTARY` (final, non-countable). No `USED`/QR/JWT in this scope.
-9. **Order states:** `PENDING → PROCESSING → CONFIRMED | FAILED | EXPIRED` — separate lifecycle from ticket states.
-10. **No real AWS account needed:** DynamoDB Local + LocalStack run entirely offline and free.
+9. **Eager ticket generation at event creation:** When an event (and each ticket type) is created, `CreateEventUseCase` pre-creates `totalQuantity` individual `Ticket` records in `AVAILABLE`. Every one of the five ticket states is therefore realized on a real record, and reservation expiry is a literal `RESERVED → AVAILABLE` transition on an existing row rather than a synthetic recomputation. The reservation, purchase, and expiry use cases all operate on these pre-materialized rows. For very large capacities a batched or lazy generation strategy (materializing tickets on demand, or in bounded chunks) would be used in production to cap write amplification at creation time; the eager approach is kept here because it makes the full state machine observable and correctness is the priority at this scope.
+10. **Order states:** `PENDING → PROCESSING → CONFIRMED | FAILED | EXPIRED` — separate lifecycle from ticket states.
+11. **No real AWS account needed:** DynamoDB Local + LocalStack run entirely offline and free.
 
-## Running locally (TODO — complete in environment phase)
+## Running locally
+
+The whole stack is self-provisioning. A one-shot `init-resources` container creates the
+DynamoDB tables and SQS queues before the app starts.
 
 ```bash
-# 1. Start infrastructure
-docker-compose up dynamodb-local localstack
-
-# 2. Create tables (init script — TODO)
-# 3. Start app
-./gradlew :app-service:bootRun --args='--spring.profiles.active=local'
+# Build the app image + start everything (dynamodb-local, localstack, init, app)
+docker-compose up --build
 ```
+
+Startup order is enforced by `depends_on` conditions:
+`dynamodb-local` + `localstack` become healthy → `init-resources` creates tables/queues and exits → `app` starts.
+
+To iterate on the app without Docker (infra in containers, app on host):
+
+```bash
+# 1. Start only the infra + provisioning
+docker-compose up dynamodb-local localstack init-resources
+
+# 2. Run the app on the host (endpoints default to localhost)
+./gradlew :app-service:bootRun
+```
+
+### Infrastructure provisioning — architectural note
+
+The application **never provisions its own infrastructure**. Tables and queues are created by
+`local-infra/init-resources.sh`, run as a separate one-shot init container. This is the local
+equivalent of what Terraform (IaC) would do in production, and keeps the app's runtime IAM role
+restricted to data-plane permissions only (no `CreateTable`/`CreateQueue`). The script is
+**idempotent** — re-running it skips existing resources. DynamoDB Local runs `-inMemory`, so data
+resets on `docker-compose down` and the init container recreates a clean environment on the next
+`up`.
 
 ## Endpoints
 

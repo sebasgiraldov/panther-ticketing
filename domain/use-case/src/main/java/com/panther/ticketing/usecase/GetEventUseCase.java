@@ -1,6 +1,7 @@
 package com.panther.ticketing.usecase;
 
-import com.panther.ticketing.model.event.Event;
+import com.panther.ticketing.model.event.EventDetails;
+import com.panther.ticketing.model.event.EventDetails.TicketTypeAvailability;
 import com.panther.ticketing.model.exception.NotFoundException;
 import com.panther.ticketing.ports.in.IGetEvent;
 import com.panther.ticketing.ports.out.EventRepository;
@@ -17,8 +18,13 @@ public class GetEventUseCase implements IGetEvent {
     }
 
     @Override
-    public Mono<Event> execute(UUID eventId) {
+    public Mono<EventDetails> execute(UUID eventId) {
         return eventRepository.findById(eventId)
-                .switchIfEmpty(Mono.error(new NotFoundException("Event not found: " + eventId)));
+                .switchIfEmpty(Mono.error(new NotFoundException("Event not found: " + eventId)))
+                .flatMap(event -> eventRepository.findTicketTypesByEventId(eventId)
+                        .flatMap(tt -> eventRepository.findInventoryCounter(eventId, tt.id())
+                                .map(counter -> new TicketTypeAvailability(tt, counter)))
+                        .collectList()
+                        .map(ticketTypes -> new EventDetails(event, ticketTypes)));
     }
 }

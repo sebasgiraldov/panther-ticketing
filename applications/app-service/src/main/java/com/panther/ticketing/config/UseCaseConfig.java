@@ -17,8 +17,8 @@ public class UseCaseConfig {
 
     @Bean
     public com.panther.ticketing.ports.in.ICreateEvent createEventUseCase(
-            EventRepository eventRepository, TimeProvider timeProvider) {
-        return new CreateEventUseCase(eventRepository, timeProvider);
+            EventRepository eventRepository, TicketRepository ticketRepository, TimeProvider timeProvider) {
+        return new CreateEventUseCase(eventRepository, ticketRepository, timeProvider);
     }
 
     @Bean
