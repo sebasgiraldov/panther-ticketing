@@ -79,7 +79,7 @@ docker-compose up dynamodb-local localstack init-resources
 ### Infrastructure provisioning — architectural note
 
 The application **never provisions its own infrastructure**. Tables and queues are created by
-`local-infra/init-resources.sh`, run as a separate one-shot init container. This is the local
+`deploy/local/init-resources.sh`, run as a separate one-shot init container. This is the local
 equivalent of what Terraform (IaC) would do in production, and keeps the app's runtime IAM role
 restricted to data-plane permissions only (no `CreateTable`/`CreateQueue`). The script is
 **idempotent** — re-running it skips existing resources. DynamoDB Local runs `-inMemory`, so data

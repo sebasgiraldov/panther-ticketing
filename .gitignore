@@ -56,6 +56,6 @@ replay_pid*
 
 # ---------------------------------------------------------------------------
 # Local secrets — .env is committed here ONLY because it holds dummy local
-# values for DynamoDB Local / LocalStack. Never commit real credentials.
+# values for DynamoDB Local / ElasticMQ. Never commit real credentials.
 # ---------------------------------------------------------------------------
 # .env

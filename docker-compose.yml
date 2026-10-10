@@ -22,7 +22,7 @@ services:
     ports:
       - "9324:9324"   # SQS API
     volumes:
-      - ./local-infra/elasticmq.conf:/opt/elasticmq.conf:ro
+      - ./deploy/local/elasticmq.conf:/opt/elasticmq.conf:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O- 'http://localhost:9324/?Action=ListQueues' || exit 1"]
       interval: 5s
@@ -62,7 +62,7 @@ services:
       - AWS_SECRET_ACCESS_KEY=dummy
     entrypoint: ["/bin/sh", "/init/init-resources.sh"]
     volumes:
-      - ./local-infra:/init:ro
+      - ./deploy/local:/init:ro
 
   app:
     build: .

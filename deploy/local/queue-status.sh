@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 # Quick SQS (ElasticMQ) inspection: lists each queue and its message counts.
-# Usage: sh local-infra/queue-status.sh
+# Usage: sh deploy/local/queue-status.sh
 set -eu
 
 SQS_ENDPOINT="${SQS_ENDPOINT:-http://localhost:9324}"

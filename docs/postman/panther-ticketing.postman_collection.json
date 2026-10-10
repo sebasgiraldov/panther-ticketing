@@ -9,7 +9,6 @@
     { "key": "event_id", "value": "" },
     { "key": "ticket_type_id", "value": "" },
     { "key": "reservation_id", "value": "" },
-    { "key": "ticket_id", "value": "" },
     { "key": "order_id", "value": "" }
   ],
   "item": [
@@ -128,10 +127,6 @@
             "exec": [
               "const res = pm.response.json();",
               "pm.collectionVariables.set('reservation_id', res.id);",
-              "if (res.ticketIds && res.ticketIds.length > 0) {",
-              "  pm.collectionVariables.set('ticket_id', res.ticketIds[0]);",
-              "  console.log('ticket_id =', res.ticketIds[0]);",
-              "}",
               "console.log('reservation_id =', res.id);",
               "pm.test('reservation is ACTIVE', function () {",
               "  pm.expect(res.status).to.eql('ACTIVE');",

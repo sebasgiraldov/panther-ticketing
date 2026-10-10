@@ -131,7 +131,7 @@ fi
 # SQS queues
 # ---------------------------------------------------------------------------
 # Queues (panther-orders + panther-orders-dlq with redrive) are declared
-# statically in local-infra/elasticmq.conf and created by ElasticMQ on startup,
+# statically in deploy/local/elasticmq.conf and created by ElasticMQ on startup,
 # so there is nothing to provision here. We just verify the queue is reachable.
 echo "==> Verifying SQS queue is reachable"
 if $SQS get-queue-url --queue-name "panther-orders" >/dev/null 2>&1; then
