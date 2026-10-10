@@ -48,7 +48,7 @@ panther-ticketing/
 5. **Idempotency:** Consumer checks order status before mutating; `idempotencyKey` prevents duplicate orders.
 6. **At-least-once SQS:** Standard queue (not FIFO). Consumer deletes message only on success; on error, visibility timeout re-delivers. DLQ recommended for production.
 7. **Reservation expiry:** Scheduler runs every 60 s, releases `RESERVED → AVAILABLE` with conditional writes — safe under concurrent execution.
-8. **Ticket states:** `AVAILABLE → RESERVED → PENDING_CONFIRMATION → SOLD` (final). `COMPLIMENTARY` (final, non-countable). No `USED`/QR/JWT in this scope.
+8. **Ticket states:** `AVAILABLE → RESERVED → PENDING_CONFIRMATION → SOLD` (final). `COMPLIMENTARY` (final, non-countable). No `USED`/QR/JWT in this scope. **Complimentary is a terminal action on a reservation** — the alternate ending to a purchase: `POST /api/v1/events/{eventId}/complimentary {reservationId, ownerRef}` takes an existing ACTIVE reservation and transitions all its tickets `RESERVED → COMPLIMENTARY`, decrementing `reservedCount` only (`availableCount` and `soldCount` untouched, so it is not a sale) and finalizing the reservation to `CONFIRMED`. This replaces the old per-`ticketId` endpoint, which required discovering an AVAILABLE ticketId with no API to do so.
 9. **Eager ticket generation at event creation:** When an event (and each ticket type) is created, `CreateEventUseCase` pre-creates `totalQuantity` individual `Ticket` records in `AVAILABLE`. Every one of the five ticket states is therefore realized on a real record, and reservation expiry is a literal `RESERVED → AVAILABLE` transition on an existing row rather than a synthetic recomputation. The reservation, purchase, and expiry use cases all operate on these pre-materialized rows. For very large capacities a batched or lazy generation strategy (materializing tickets on demand, or in bounded chunks) would be used in production to cap write amplification at creation time; the eager approach is kept here because it makes the full state machine observable and correctness is the priority at this scope.
 10. **Order states:** `PENDING → PROCESSING → CONFIRMED | FAILED | EXPIRED` — separate lifecycle from ticket states.
 11. **No real AWS account needed:** DynamoDB Local + LocalStack run entirely offline and free.
@@ -96,7 +96,7 @@ resets on `docker-compose down` and the init container recreates a clean environ
 | POST | `/api/v1/events/{eventId}/reservations` | Reserve tickets — 10 min hold (req 4.2) |
 | POST | `/api/v1/orders` | Purchase (enqueue + return orderId) (req 4.3) |
 | GET | `/api/v1/orders/{orderId}` | Order status (req 4.4) |
-| POST | `/api/v1/tickets/{ticketId}/complimentary` | Mark ticket as complimentary (audited) |
+| POST | `/api/v1/events/{eventId}/complimentary` | Mark a reservation's tickets as complimentary (audited) |
 
 ## Future extensions (out of scope)
 - **Gate scanning / `USED` state:** `SOLD → USED` via idempotent conditional write. Only one scanner wins; prevents double-entry. Would require a signed QR (JWT) for offline validation.

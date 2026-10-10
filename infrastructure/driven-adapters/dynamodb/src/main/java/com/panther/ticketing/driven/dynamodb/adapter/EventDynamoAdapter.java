@@ -213,6 +213,27 @@ public class EventDynamoAdapter implements EventRepository {
                         ex -> new ConflictException("Inventory conditional check failed"));
     }
 
+    @Override
+    public Mono<InventoryCounter> decrementReservedForComplimentary(UUID eventId, UUID ticketTypeId,
+                                                                     int quantity, long expectedVersion) {
+        String pk = eventId + "#" + ticketTypeId;
+        return Mono.fromFuture(() -> client.updateItem(UpdateItemRequest.builder()
+                        .tableName(inventoryTable)
+                        .key(Map.of("pk", s(pk)))
+                        .updateExpression("SET reservedCount = reservedCount - :qty, #v = #v + :one")
+                        .conditionExpression("reservedCount >= :qty AND #v = :expectedVersion")
+                        .expressionAttributeNames(Map.of("#v", "version"))
+                        .expressionAttributeValues(Map.of(
+                                ":qty", n(quantity),
+                                ":one", n(1),
+                                ":expectedVersion", n(expectedVersion)))
+                        .returnValues(ReturnValue.ALL_NEW)
+                        .build()))
+                .map(resp -> mapToCounter(resp.attributes()))
+                .onErrorMap(ConditionalCheckFailedException.class,
+                        ex -> new ConflictException("Inventory conditional check failed (complimentary)"));
+    }
+
     private Event mapToEvent(Map<String, AttributeValue> item) {
         return new Event(
                 getUUID(item, "id"), getString(item, "name"), getString(item, "description"),

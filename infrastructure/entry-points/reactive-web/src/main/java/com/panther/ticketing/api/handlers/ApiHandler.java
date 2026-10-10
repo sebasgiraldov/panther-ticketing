@@ -89,11 +89,12 @@ public class ApiHandler extends RequestParameterValidator {
     }
 
     public Mono<ServerResponse> markComplimentary(ServerRequest request) {
-        validatePathVariables(request, List.of("ticketId"));
-        UUID ticketId = UUID.fromString(request.pathVariable("ticketId"));
+        validatePathVariables(request, List.of("eventId"));
+        UUID eventId = UUID.fromString(request.pathVariable("eventId"));
         return request.bodyToMono(MarkComplimentaryRequest.class)
-                .flatMap(req -> markComplimentary.execute(ticketId, req.ownerRef()))
-                .map(ApiMapper::toTicketResponse)
+                .flatMap(req -> markComplimentary.execute(
+                        eventId, UUID.fromString(req.reservationId()), req.ownerRef()))
+                .map(ApiMapper::toReservationResponse)
                 .flatMap(resp -> ServerResponse.ok().bodyValue(resp));
     }
 }

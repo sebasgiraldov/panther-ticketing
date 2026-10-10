@@ -30,4 +30,12 @@ public interface EventRepository {
      * Atomically decrements reservedCount and increments availableCount (release).
      */
     Mono<InventoryCounter> decrementReservedIncrementAvailable(UUID eventId, UUID ticketTypeId, int quantity, long expectedVersion);
+    /**
+     * Atomically decrements reservedCount for a complimentary grant.
+     * The tickets were already moved AVAILABLE->RESERVED at reservation time, so now
+     * they leave RESERVED but are NOT a sale: soldCount and availableCount are untouched
+     * (COMPLIMENTARY is final and non-countable). Conditional write:
+     * reservedCount >= quantity AND version == expectedVersion.
+     */
+    Mono<InventoryCounter> decrementReservedForComplimentary(UUID eventId, UUID ticketTypeId, int quantity, long expectedVersion);
 }

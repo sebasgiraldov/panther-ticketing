@@ -50,11 +50,15 @@ public record Ticket(
     }
 
     public Ticket markComplimentary(String owner) {
-        if (status != TicketStatus.AVAILABLE) {
-            throw new BusinessException("Ticket " + id + " is not AVAILABLE for complimentary (current: " + status + ")");
+        if (status != TicketStatus.AVAILABLE && status != TicketStatus.RESERVED) {
+            throw new BusinessException("Ticket " + id + " is not AVAILABLE or RESERVED for complimentary (current: " + status + ")");
         }
+        // Keep the reservationId when coming from a reservation (RESERVED): the tickets
+        // table has a reservationId GSI, and writing NULL to a GSI key attribute is
+        // rejected. A COMPLIMENTARY ticket granted via a reservation stays linked to it,
+        // consistent with how confirmSale keeps the reservationId on a SOLD ticket.
         return new Ticket(id, eventId, ticketTypeId, TicketStatus.COMPLIMENTARY, price,
-                seatNumber, owner, null, version, createdAt, LocalDateTime.now());
+                seatNumber, owner, reservationId, version, createdAt, LocalDateTime.now());
     }
 
     public Ticket release() {

@@ -23,7 +23,7 @@ public class RouterRest {
                 .POST(BASE + "/events/{eventId}/reservations", handler::reserveTickets)
                 .POST(BASE + "/orders", handler::purchaseTickets)
                 .GET(BASE + "/orders/{orderId}", handler::getOrderStatus)
-                .POST(BASE + "/tickets/{ticketId}/complimentary", handler::markComplimentary)
+                .POST(BASE + "/events/{eventId}/complimentary", handler::markComplimentary)
                 .build();
     }
 }

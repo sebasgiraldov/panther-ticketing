@@ -43,9 +43,10 @@ public class UseCaseConfig {
     @Bean
     public com.panther.ticketing.ports.in.IPurchaseTickets purchaseTicketsUseCase(
             OrderRepository orderRepository, ReservationRepository reservationRepository,
-            OrderQueueGateway orderQueueGateway, TimeProvider timeProvider) {
+            OrderQueueGateway orderQueueGateway, EventRepository eventRepository,
+            TimeProvider timeProvider) {
         return new PurchaseTicketsUseCase(orderRepository, reservationRepository,
-                orderQueueGateway, timeProvider);
+                orderQueueGateway, eventRepository, timeProvider);
     }
 
     @Bean
@@ -72,7 +73,9 @@ public class UseCaseConfig {
 
     @Bean
     public com.panther.ticketing.ports.in.IMarkComplimentary markComplimentaryUseCase(
-            TicketRepository ticketRepository, AuditGateway auditGateway, TimeProvider timeProvider) {
-        return new MarkComplimentaryUseCase(ticketRepository, auditGateway, timeProvider);
+            ReservationRepository reservationRepository, TicketRepository ticketRepository,
+            EventRepository eventRepository, AuditGateway auditGateway, TimeProvider timeProvider) {
+        return new MarkComplimentaryUseCase(reservationRepository, ticketRepository,
+                eventRepository, auditGateway, timeProvider);
     }
 }
