@@ -54,7 +54,7 @@ public class OrderQueueConsumer {
         }
     }
 
-    private Flux<Void> poll() {
+    Flux<Void> poll() {
         ReceiveMessageRequest receiveRequest = ReceiveMessageRequest.builder()
                 .queueUrl(queueUrl)
                 .maxNumberOfMessages(10)
@@ -72,7 +72,7 @@ public class OrderQueueConsumer {
                 });
     }
 
-    private Mono<Void> processMessage(Message message) {
+    Mono<Void> processMessage(Message message) {
         return Mono.fromCallable(() -> objectMapper.readValue(message.body(), OrderMessage.class))
                 .flatMap(msg -> processOrder.execute(UUID.fromString(msg.orderId())))
                 .then(deleteMessage(message))
@@ -84,7 +84,7 @@ public class OrderQueueConsumer {
                 });
     }
 
-    private Mono<Void> deleteMessage(Message message) {
+    Mono<Void> deleteMessage(Message message) {
         return Mono.fromFuture(() -> sqsClient.deleteMessage(
                         DeleteMessageRequest.builder()
                                 .queueUrl(queueUrl)

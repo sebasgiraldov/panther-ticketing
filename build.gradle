@@ -69,6 +69,30 @@ subprojects {
     }
 }
 
+tasks.register('jacocoMergedReport', JacocoReport) {
+    dependsOn subprojects.collect { it.tasks.withType(Test) }
+
+    def excludes = [
+        '**/config/**', '**/MainApplication.class',
+        '**/*Config.class', '**/dto/**', '**/mapper/**',
+        '**/model/**', '**/entity/**', '**/enums/**'
+    ]
+
+    executionData.setFrom(fileTree(rootDir).include('**/build/jacoco/test.exec'))
+
+    sourceDirectories.setFrom(subprojects.collect { it.sourceSets.main.allSource.srcDirs })
+    classDirectories.setFrom(files(subprojects.collect {
+        fileTree(dir: it.sourceSets.main.output.classesDirs.asPath, exclude: excludes)
+    }))
+
+    reports {
+        html.required = true
+        xml.required = true
+        html.outputLocation = layout.buildDirectory.dir('reports/jacoco/merged/html')
+        xml.outputLocation  = layout.buildDirectory.file('reports/jacoco/merged/jacocoMergedReport.xml')
+    }
+}
+
 tasks.named('wrapper') {
     gradleVersion = '9.8.1'
 }
