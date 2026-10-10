@@ -21,8 +21,8 @@ public class ReservationExpirationScheduler {
     public void releaseExpired() {
         log.info("Running reservation expiration scheduler");
         releaseExpiredReservations.execute()
-                .doOnSuccess(v -> log.info("Reservation expiration run completed"))
-                .doOnError(ex -> log.error("Reservation expiration run failed: {}", ex.getMessage()))
-                .subscribe();
+                .subscribe(
+                        v -> log.info("Reservation expiration run completed"),
+                        ex -> log.error("Reservation expiration run failed: {}", ex.getMessage()));
     }
 }

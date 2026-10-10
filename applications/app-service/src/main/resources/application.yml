@@ -26,8 +26,8 @@ aws:
       inventory: ${DYNAMODB_TABLE_INVENTORY:panther-inventory}
       audit: ${DYNAMODB_TABLE_AUDIT:panther-audit}
   sqs:
-    endpoint: ${SQS_ENDPOINT:http://localhost:4566}
-    queue-url: ${SQS_QUEUE_URL:http://localhost:4566/000000000000/panther-orders}
+    endpoint: ${SQS_ENDPOINT:http://localhost:9324}
+    queue-url: ${SQS_QUEUE_URL:http://localhost:9324/000000000000/panther-orders}
 
 reservation:
   minutes: 10

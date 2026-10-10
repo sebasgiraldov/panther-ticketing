@@ -33,7 +33,7 @@ public class OrderQueueConsumer {
 
     public OrderQueueConsumer(SqsAsyncClient sqsClient, IProcessOrder processOrder,
                                ObjectMapper objectMapper,
-                               @Value("${aws.sqs.queue-url:http://localhost:4566/000000000000/panther-orders}") String queueUrl) {
+                               @Value("${aws.sqs.queue-url:http://localhost:9324/000000000000/panther-orders}") String queueUrl) {
         this.sqsClient = sqsClient;
         this.processOrder = processOrder;
         this.objectMapper = objectMapper;
@@ -63,7 +63,13 @@ public class OrderQueueConsumer {
 
         return Mono.fromFuture(() -> sqsClient.receiveMessage(receiveRequest))
                 .flatMapMany(resp -> Flux.fromIterable(resp.messages()))
-                .flatMap(this::processMessage);
+                .flatMap(this::processMessage)
+                .onErrorResume(ex -> {
+                    // Keep the polling stream alive even if a receive fails
+                    // (e.g. queue not yet provisioned, transient network error).
+                    log.warn("SQS poll failed, will retry next tick: {}", ex.getMessage());
+                    return Flux.empty();
+                });
     }
 
     private Mono<Void> processMessage(Message message) {

@@ -21,7 +21,7 @@ public class OrderQueueProducer implements OrderQueueGateway {
     private final String queueUrl;
 
     public OrderQueueProducer(SqsAsyncClient sqsClient, ObjectMapper objectMapper,
-                               @Value("${aws.sqs.queue-url:http://localhost:4566/000000000000/panther-orders}") String queueUrl) {
+                               @Value("${aws.sqs.queue-url:http://localhost:9324/000000000000/panther-orders}") String queueUrl) {
         this.sqsClient = sqsClient;
         this.objectMapper = objectMapper;
         this.queueUrl = queueUrl;
