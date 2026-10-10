@@ -51,7 +51,8 @@ class ReserveTicketsUseCaseTest {
 
     @BeforeEach
     void setUp() {
-        useCase = new ReserveTicketsUseCase(eventRepository, ticketRepository, reservationRepository, auditGateway, timeProvider);
+        useCase = new ReserveTicketsUseCase(eventRepository, ticketRepository, reservationRepository,
+                auditGateway, timeProvider, 10, 3, 100L);
         when(timeProvider.now()).thenReturn(now);
     }
 

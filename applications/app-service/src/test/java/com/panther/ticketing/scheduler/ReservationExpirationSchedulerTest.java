@@ -35,4 +35,14 @@ class ReservationExpirationSchedulerTest {
 
         verify(releaseExpiredReservations).execute();
     }
+
+    @Test
+    void releaseExpired_onSuccess_logsCompletion() throws InterruptedException {
+        when(releaseExpiredReservations.execute()).thenReturn(Mono.empty());
+
+        scheduler.releaseExpired();
+        Thread.sleep(100);
+
+        verify(releaseExpiredReservations).execute();
+    }
 }

@@ -184,6 +184,8 @@ resets on `podman compose down` and the init container recreates a clean environ
 
 ## Usage examples
 
+For architecture diagrams (hexagonal structure, state machines, sequence diagrams, AWS deployment) see **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+
 For the full guided walkthrough see **[docs/PUESTA_EN_MARCHA.md](docs/PUESTA_EN_MARCHA.md)**, and import
 **[docs/postman/panther-ticketing.postman_collection.json](docs/postman/panther-ticketing.postman_collection.json)**
 into Postman for a ready-to-run collection where each request chains the previous one's IDs.
@@ -280,8 +282,38 @@ This transitions the reservation's tickets `RESERVED → COMPLIMENTARY`, finaliz
 untouched, so a complimentary is **not** a sale. From the fresh reserve of 2
 (`available=8, reserved=2, sold=0`) the counter becomes `available=8, reserved=0, sold=0`.
 
+## AWS Deployment (production)
+
+For production deployment on AWS, the infrastructure is fully defined as code using Terraform.
+See **[deploy/terraform/README.md](deploy/terraform/README.md)** for the full setup.
+
+The deployment flow is:
+
+```
+1. Build the app jar
+   ./gradlew :app-service:bootJar
+
+2. Build and push the Docker image to ECR
+   aws ecr get-login-password --region us-east-1 | \
+     docker login --username AWS --password-stdin <account>.dkr.ecr.us-east-1.amazonaws.com
+   docker build -t panther-ticketing .
+   docker tag panther-ticketing:latest <account>.dkr.ecr.us-east-1.amazonaws.com/panther-ticketing:latest
+   docker push <account>.dkr.ecr.us-east-1.amazonaws.com/panther-ticketing:latest
+
+3. Set the image URL in deploy/terraform/environments/<env>/terraform.tfvars
+   app_image = "<account>.dkr.ecr.us-east-1.amazonaws.com/panther-ticketing:latest"
+
+4. Apply Terraform
+   cd deploy/terraform
+   terraform init
+   terraform apply -var-file=environments/dev/terraform.tfvars
+```
+
+What Terraform provisions: VPC + private/public subnets, ALB (HTTPS), ECS Fargate service,
+DynamoDB tables (7) with GSIs, SQS queue + DLQ, IAM roles with least-privilege.
+No access keys are used — the app authenticates via the ECS task role.
+
 ## Future extensions (out of scope)
 - **Gate scanning / `USED` state:** `SOLD → USED` via idempotent conditional write. Only one scanner wins; prevents double-entry. Would require a signed QR (JWT) for offline validation.
 - **Virtual threads (Project Loom):** WebFlux handles concurrency via event loop. Java 25 ships virtual threads as stable — they are an alternative for blocking-I/O workloads but are not needed in the reactive hot path.
-- **Terraform IaC:** DynamoDB tables, SQS queue, ECS/Fargate service, IAM roles with least-privilege.
 - **Observability:** Micrometer + Prometheus + Grafana dashboards for queue depth, reservation expiry rate, conflict rate.

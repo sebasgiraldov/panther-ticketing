@@ -25,25 +25,31 @@ import java.util.UUID;
 
 public class ReserveTicketsUseCase implements IReserveTickets {
 
-    private static final int RESERVATION_MINUTES = 10;
-    private static final int MAX_RETRIES = 3;
-
     private final EventRepository eventRepository;
     private final TicketRepository ticketRepository;
     private final ReservationRepository reservationRepository;
     private final AuditGateway auditGateway;
     private final TimeProvider timeProvider;
+    private final int reservationMinutes;
+    private final int maxRetries;
+    private final long retryBackoffMs;
 
     public ReserveTicketsUseCase(EventRepository eventRepository,
                                   TicketRepository ticketRepository,
                                   ReservationRepository reservationRepository,
                                   AuditGateway auditGateway,
-                                  TimeProvider timeProvider) {
+                                  TimeProvider timeProvider,
+                                  int reservationMinutes,
+                                  int maxRetries,
+                                  long retryBackoffMs) {
         this.eventRepository = eventRepository;
         this.ticketRepository = ticketRepository;
         this.reservationRepository = reservationRepository;
         this.auditGateway = auditGateway;
         this.timeProvider = timeProvider;
+        this.reservationMinutes = reservationMinutes;
+        this.maxRetries = maxRetries;
+        this.retryBackoffMs = retryBackoffMs;
     }
 
     @Override
@@ -54,7 +60,7 @@ public class ReserveTicketsUseCase implements IReserveTickets {
         return eventRepository.findTicketTypeById(ticketTypeId)
                 .switchIfEmpty(Mono.error(new BusinessException("TicketType not found: " + ticketTypeId)))
                 .flatMap(ticketType -> reserveWithRetry(eventId, ticketTypeId, quantity, customerRef, ticketType))
-                .retryWhen(Retry.backoff(MAX_RETRIES, Duration.ofMillis(100))
+                .retryWhen(Retry.backoff(maxRetries, Duration.ofMillis(retryBackoffMs))
                         .filter(ex -> ex instanceof ConflictException));
     }
 
@@ -88,7 +94,7 @@ public class ReserveTicketsUseCase implements IReserveTickets {
                     List<UUID> ticketIds = reservedTickets.stream().map(Ticket::id).toList();
                     Reservation reservation = new Reservation(
                             reservationId, eventId, ticketTypeId, ticketIds, customerRef,
-                            timeProvider.now().plusMinutes(RESERVATION_MINUTES),
+                            timeProvider.now().plusMinutes(reservationMinutes),
                             ReservationStatus.ACTIVE, 0L, timeProvider.now());
                     return reservationRepository.save(reservation);
                 })

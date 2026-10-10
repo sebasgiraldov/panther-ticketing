@@ -32,7 +32,11 @@ public class GlobalErrorHandler implements WebExceptionHandler {
 
     @Override
     public Mono<Void> handle(ServerWebExchange exchange, Throwable ex) {
-        log.error("Unhandled error on {}: {}", exchange.getRequest().getPath(), ex.getMessage());
+        if (ex instanceof DomainException) {
+            log.warn("Business error on {}: {}", exchange.getRequest().getPath(), ex.getMessage());
+        } else {
+            log.error("Unhandled error on {}: {}", exchange.getRequest().getPath(), ex.getMessage());
+        }
 
         // Pattern matching exhaustivo sobre sealed DomainException hierarchy
         HttpStatus status = switch (ex) {

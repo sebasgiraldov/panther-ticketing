@@ -7,7 +7,6 @@ import com.panther.ticketing.model.event.InventoryCounter;
 import com.panther.ticketing.model.event.TicketType;
 import com.panther.ticketing.model.order.Order;
 import com.panther.ticketing.model.reservation.Reservation;
-import com.panther.ticketing.model.ticket.Ticket;
 
 import java.util.List;
 import java.util.UUID;
@@ -64,8 +63,4 @@ public final class ApiMapper {
                 order.createdAt(), order.updatedAt());
     }
 
-    public static TicketResponse toTicketResponse(Ticket ticket) {
-        return new TicketResponse(ticket.id(), ticket.eventId(), ticket.ticketTypeId(),
-                ticket.status(), ticket.price(), ticket.seatNumber(), ticket.ownerRef());
-    }
 }

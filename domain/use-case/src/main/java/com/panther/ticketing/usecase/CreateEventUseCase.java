@@ -5,6 +5,7 @@ import com.panther.ticketing.model.event.Event;
 import com.panther.ticketing.model.event.InventoryCounter;
 import com.panther.ticketing.model.event.TicketType;
 import com.panther.ticketing.model.ticket.Ticket;
+import com.panther.ticketing.model.exception.BusinessException;
 import com.panther.ticketing.ports.in.ICreateEvent;
 import com.panther.ticketing.ports.out.EventRepository;
 import com.panther.ticketing.ports.out.TicketRepository;
@@ -33,6 +34,11 @@ public class CreateEventUseCase implements ICreateEvent {
 
     @Override
     public Mono<Event> execute(Event event, List<TicketType> ticketTypes) {
+        int totalTickets = ticketTypes.stream().mapToInt(TicketType::totalQuantity).sum();
+        if (totalTickets > event.totalCapacity()) {
+            return Mono.error(new BusinessException(
+                    "Total ticket quantity (" + totalTickets + ") exceeds event capacity (" + event.totalCapacity() + ")"));
+        }
         LocalDateTime now = timeProvider.now();
         Event stamped = event.createdAt() != null
                 ? event

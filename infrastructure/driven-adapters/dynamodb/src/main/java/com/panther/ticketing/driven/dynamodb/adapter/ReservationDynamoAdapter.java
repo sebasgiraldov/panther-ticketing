@@ -14,7 +14,6 @@ import software.amazon.awssdk.services.dynamodb.model.*;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static com.panther.ticketing.driven.dynamodb.converter.AttributeValueConverter.*;
 
@@ -99,7 +98,7 @@ public class ReservationDynamoAdapter implements ReservationRepository {
         if (r.createdAt() != null) item.put("createdAt", s(formatDateTime(r.createdAt())));
         List<AttributeValue> ticketIdAttrs = r.ticketIds().stream()
                 .map(id -> AttributeValue.builder().s(id.toString()).build())
-                .collect(Collectors.toList());
+                .toList();
         item.put("ticketIds", AttributeValue.builder().l(ticketIdAttrs).build());
         return item;
     }

@@ -1,7 +1,9 @@
 package com.panther.ticketing.config;
 
+import com.panther.ticketing.ports.in.*;
 import com.panther.ticketing.ports.out.*;
 import com.panther.ticketing.usecase.*;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -16,32 +18,36 @@ public class UseCaseConfig {
     }
 
     @Bean
-    public com.panther.ticketing.ports.in.ICreateEvent createEventUseCase(
+    public ICreateEvent createEventUseCase(
             EventRepository eventRepository, TicketRepository ticketRepository, TimeProvider timeProvider) {
         return new CreateEventUseCase(eventRepository, ticketRepository, timeProvider);
     }
 
     @Bean
-    public com.panther.ticketing.ports.in.IGetEvent getEventUseCase(EventRepository eventRepository) {
+    public IGetEvent getEventUseCase(EventRepository eventRepository) {
         return new GetEventUseCase(eventRepository);
     }
 
     @Bean
-    public com.panther.ticketing.ports.in.ICheckAvailability checkAvailabilityUseCase(EventRepository eventRepository) {
+    public ICheckAvailability checkAvailabilityUseCase(EventRepository eventRepository) {
         return new CheckAvailabilityUseCase(eventRepository);
     }
 
     @Bean
-    public com.panther.ticketing.ports.in.IReserveTickets reserveTicketsUseCase(
+    public IReserveTickets reserveTicketsUseCase(
             EventRepository eventRepository, TicketRepository ticketRepository,
             ReservationRepository reservationRepository, AuditGateway auditGateway,
-            TimeProvider timeProvider) {
+            TimeProvider timeProvider,
+            @Value("${reservation.minutes}") int reservationMinutes,
+            @Value("${reservation.max-retries}") int maxRetries,
+            @Value("${reservation.retry-backoff-ms}") long retryBackoffMs) {
         return new ReserveTicketsUseCase(eventRepository, ticketRepository,
-                reservationRepository, auditGateway, timeProvider);
+                reservationRepository, auditGateway, timeProvider,
+                reservationMinutes, maxRetries, retryBackoffMs);
     }
 
     @Bean
-    public com.panther.ticketing.ports.in.IPurchaseTickets purchaseTicketsUseCase(
+    public IPurchaseTickets purchaseTicketsUseCase(
             OrderRepository orderRepository, ReservationRepository reservationRepository,
             OrderQueueGateway orderQueueGateway, EventRepository eventRepository,
             TimeProvider timeProvider) {
@@ -50,12 +56,12 @@ public class UseCaseConfig {
     }
 
     @Bean
-    public com.panther.ticketing.ports.in.IGetOrderStatus getOrderStatusUseCase(OrderRepository orderRepository) {
+    public IGetOrderStatus getOrderStatusUseCase(OrderRepository orderRepository) {
         return new GetOrderStatusUseCase(orderRepository);
     }
 
     @Bean
-    public com.panther.ticketing.ports.in.IProcessOrder processOrderUseCase(
+    public IProcessOrder processOrderUseCase(
             OrderRepository orderRepository, ReservationRepository reservationRepository,
             TicketRepository ticketRepository, EventRepository eventRepository,
             AuditGateway auditGateway, TimeProvider timeProvider) {
@@ -64,7 +70,7 @@ public class UseCaseConfig {
     }
 
     @Bean
-    public com.panther.ticketing.ports.in.IReleaseExpiredReservations releaseExpiredReservationsUseCase(
+    public IReleaseExpiredReservations releaseExpiredReservationsUseCase(
             ReservationRepository reservationRepository, TicketRepository ticketRepository,
             EventRepository eventRepository, AuditGateway auditGateway, TimeProvider timeProvider) {
         return new ReleaseExpiredReservationsUseCase(reservationRepository, ticketRepository,
@@ -72,7 +78,7 @@ public class UseCaseConfig {
     }
 
     @Bean
-    public com.panther.ticketing.ports.in.IMarkComplimentary markComplimentaryUseCase(
+    public IMarkComplimentary markComplimentaryUseCase(
             ReservationRepository reservationRepository, TicketRepository ticketRepository,
             EventRepository eventRepository, AuditGateway auditGateway, TimeProvider timeProvider) {
         return new MarkComplimentaryUseCase(reservationRepository, ticketRepository,

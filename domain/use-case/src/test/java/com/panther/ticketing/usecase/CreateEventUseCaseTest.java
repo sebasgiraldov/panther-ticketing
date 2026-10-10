@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -78,5 +80,17 @@ class CreateEventUseCaseTest {
         StepVerifier.create(useCase.execute(event, List.of(tt)))
                 .expectNextMatches(e -> e.createdAt().equals(existing))
                 .verifyComplete();
+    }
+
+    @Test
+    @MockitoSettings(strictness = Strictness.LENIENT)
+    void execute_totalTicketsExceedCapacity_throwsBusinessException() {
+        UUID eventId = UUID.randomUUID();
+        Event event = new Event(eventId, "Concert", "Desc", LocalDateTime.now(), "Venue", 3, null);
+        TicketType tt = new TicketType(UUID.randomUUID(), null, "General", BigDecimal.valueOf(100), 5);
+
+        StepVerifier.create(useCase.execute(event, List.of(tt)))
+                .expectError(com.panther.ticketing.model.exception.BusinessException.class)
+                .verify();
     }
 }
