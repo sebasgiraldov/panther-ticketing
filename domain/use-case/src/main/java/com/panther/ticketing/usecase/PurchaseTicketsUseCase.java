@@ -6,6 +6,7 @@ import com.panther.ticketing.model.order.Order;
 import com.panther.ticketing.model.reservation.Reservation;
 import com.panther.ticketing.model.exception.BusinessException;
 import com.panther.ticketing.ports.in.IPurchaseTickets;
+import com.panther.ticketing.ports.out.EventRepository;
 import com.panther.ticketing.ports.out.OrderQueueGateway;
 import com.panther.ticketing.ports.out.OrderRepository;
 import com.panther.ticketing.ports.out.ReservationRepository;
@@ -22,15 +23,18 @@ public class PurchaseTicketsUseCase implements IPurchaseTickets {
     private final OrderRepository orderRepository;
     private final ReservationRepository reservationRepository;
     private final OrderQueueGateway orderQueueGateway;
+    private final EventRepository eventRepository;
     private final TimeProvider timeProvider;
 
     public PurchaseTicketsUseCase(OrderRepository orderRepository,
                                    ReservationRepository reservationRepository,
                                    OrderQueueGateway orderQueueGateway,
+                                   EventRepository eventRepository,
                                    TimeProvider timeProvider) {
         this.orderRepository = orderRepository;
         this.reservationRepository = reservationRepository;
         this.orderQueueGateway = orderQueueGateway;
+        this.eventRepository = eventRepository;
         this.timeProvider = timeProvider;
     }
 
@@ -54,13 +58,21 @@ public class PurchaseTicketsUseCase implements IPurchaseTickets {
                     if (reservation.isExpired(timeProvider.now())) {
                         return Mono.error(new BusinessException("Reservation has expired: " + reservationId));
                     }
-                    Order order = new Order(
-                            UUID.randomUUID(), reservationId, reservation.ticketTypeId(),
-                            reservation.eventId(), customerRef, reservation.ticketIds().size(),
-                            BigDecimal.ZERO, OrderStatus.PENDING, idempotencyKey,
-                            0L, timeProvider.now(), timeProvider.now());
-                    return orderRepository.save(order);
+                    int quantity = reservation.ticketIds().size();
+                    return eventRepository.findTicketTypeById(reservation.ticketTypeId())
+                            .switchIfEmpty(Mono.error(new NotFoundException(
+                                    "TicketType not found: " + reservation.ticketTypeId())))
+                            .map(ticketType -> {
+                                BigDecimal totalAmount = ticketType.price()
+                                        .multiply(BigDecimal.valueOf(quantity));
+                                return new Order(
+                                        UUID.randomUUID(), reservationId, reservation.ticketTypeId(),
+                                        reservation.eventId(), customerRef, quantity,
+                                        totalAmount, OrderStatus.PENDING, idempotencyKey,
+                                        0L, timeProvider.now(), timeProvider.now());
+                            });
                 })
+                .flatMap(orderRepository::save)
                 .flatMap(order -> orderQueueGateway.enqueue(order)
                         .retryWhen(Retry.backoff(3, Duration.ofMillis(200)))
                         .thenReturn(order));
