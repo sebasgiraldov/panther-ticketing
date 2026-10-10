@@ -26,7 +26,7 @@ public class AuditDynamoAdapter implements AuditGateway {
     private final String table;
 
     public AuditDynamoAdapter(DynamoDbAsyncClient client,
-                               @Value("${aws.dynamodb.tables.audit:panther-audit}") String table) {
+                               @Value("${aws.dynamodb.tables.audit}") String table) {
         this.client = client;
         this.table = table;
     }

@@ -27,7 +27,7 @@ public class TicketDynamoAdapter implements TicketRepository {
     private final String table;
 
     public TicketDynamoAdapter(DynamoDbAsyncClient client,
-                                @Value("${aws.dynamodb.tables.tickets:panther-tickets}") String table) {
+                                @Value("${aws.dynamodb.tables.tickets}") String table) {
         this.client = client;
         this.table = table;
     }

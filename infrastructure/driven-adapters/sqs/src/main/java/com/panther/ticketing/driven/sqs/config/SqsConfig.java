@@ -13,16 +13,16 @@ import java.net.URI;
 @Configuration
 public class SqsConfig {
 
-    @Value("${aws.region:us-east-1}")
+    @Value("${aws.region}")
     private String region;
 
-    @Value("${aws.sqs.endpoint:http://localhost:9324}")
+    @Value("${aws.sqs.endpoint}")
     private String endpoint;
 
-    @Value("${aws.access-key-id:dummy}")
+    @Value("${aws.access-key-id}")
     private String accessKeyId;
 
-    @Value("${aws.secret-access-key:dummy}")
+    @Value("${aws.secret-access-key}")
     private String secretAccessKey;
 
     @Bean

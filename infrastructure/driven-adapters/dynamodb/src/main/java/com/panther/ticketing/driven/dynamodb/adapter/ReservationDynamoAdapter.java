@@ -25,7 +25,7 @@ public class ReservationDynamoAdapter implements ReservationRepository {
     private final String table;
 
     public ReservationDynamoAdapter(DynamoDbAsyncClient client,
-                                     @Value("${aws.dynamodb.tables.reservations:panther-reservations}") String table) {
+                                     @Value("${aws.dynamodb.tables.reservations}") String table) {
         this.client = client;
         this.table = table;
     }

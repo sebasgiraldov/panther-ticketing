@@ -24,7 +24,7 @@ public class OrderDynamoAdapter implements OrderRepository {
     private final String table;
 
     public OrderDynamoAdapter(DynamoDbAsyncClient client,
-                               @Value("${aws.dynamodb.tables.orders:panther-orders}") String table) {
+                               @Value("${aws.dynamodb.tables.orders}") String table) {
         this.client = client;
         this.table = table;
     }

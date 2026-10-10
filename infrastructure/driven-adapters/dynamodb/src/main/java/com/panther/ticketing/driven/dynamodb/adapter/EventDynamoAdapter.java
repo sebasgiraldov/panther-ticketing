@@ -34,9 +34,9 @@ public class EventDynamoAdapter implements EventRepository {
     private final String inventoryTable;
 
     public EventDynamoAdapter(DynamoDbAsyncClient client,
-                               @Value("${aws.dynamodb.tables.events:panther-events}") String eventsTable,
-                               @Value("${aws.dynamodb.tables.ticket-types:panther-ticket-types}") String ticketTypesTable,
-                               @Value("${aws.dynamodb.tables.inventory:panther-inventory}") String inventoryTable) {
+                               @Value("${aws.dynamodb.tables.events}") String eventsTable,
+                               @Value("${aws.dynamodb.tables.ticket-types}") String ticketTypesTable,
+                               @Value("${aws.dynamodb.tables.inventory}") String inventoryTable) {
         this.client = client;
         this.eventsTable = eventsTable;
         this.ticketTypesTable = ticketTypesTable;

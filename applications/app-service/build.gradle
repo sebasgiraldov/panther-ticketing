@@ -10,6 +10,7 @@ dependencies {
     implementation project(':helpers')
     implementation libs.boot.starter.webflux
     implementation libs.boot.actuator
+    implementation libs.spring.dotenv
     testImplementation libs.archunit
 }
 

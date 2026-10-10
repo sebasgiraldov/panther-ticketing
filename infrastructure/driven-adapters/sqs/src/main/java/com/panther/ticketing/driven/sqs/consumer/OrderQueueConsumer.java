@@ -33,7 +33,7 @@ public class OrderQueueConsumer {
 
     public OrderQueueConsumer(SqsAsyncClient sqsClient, IProcessOrder processOrder,
                                ObjectMapper objectMapper,
-                               @Value("${aws.sqs.queue-url:http://localhost:9324/000000000000/panther-orders}") String queueUrl) {
+                               @Value("${aws.sqs.queue-url}") String queueUrl) {
         this.sqsClient = sqsClient;
         this.processOrder = processOrder;
         this.objectMapper = objectMapper;
