@@ -14,7 +14,7 @@ graph TD
     end
 
     subgraph infra["Infrastructure"]
-        web["entry-points/reactive-web\nRouterRest · ApiHandler\nApiMapper · GlobalErrorHandler"]
+        web["entry-points/reactive-web\nRouterRest · ApiHandler\nApiMapper · GlobalErrorHandler\nRateLimitFilter"]
         dynamo["driven-adapters/dynamodb\nEventDynamoAdapter · TicketDynamoAdapter\nReservationDynamoAdapter · OrderDynamoAdapter\nAuditDynamoAdapter"]
         sqs["driven-adapters/sqs\nOrderQueueProducer\nOrderQueueConsumer"]
         helpers["helpers\nRequestParameterValidator"]
@@ -67,7 +67,33 @@ stateDiagram-v2
     PENDING --> PROCESSING : ProcessOrder starts
     PROCESSING --> CONFIRMED : All tickets sold,\ninventory updated
     PROCESSING --> FAILED : Reservation expired\nor error
+    PROCESSING --> EXPIRED : (reserved for future\nauto-expiry of stale orders)
 ```
+
+---
+
+## 4. Rate Limiting — Request Flow
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant RL as RateLimitFilter\n(@Order -1)
+    participant GEH as GlobalErrorHandler\n(@Order -2)
+    participant R as RouterFunction\n+ ApiHandler
+
+    C->>RL: POST /reservations or POST /orders
+
+    alt Within limit (acquirePermission = true)
+        RL->>R: chain.filter(exchange)
+        R-->>C: 201 / 202 (normal response)
+    else Limit exceeded (acquirePermission = false)
+        RL-->>C: 429 Too Many Requests\n{status:429, error:"Too Many Requests",\nmessage:"Too many requests — rate limit exceeded"}
+    end
+```
+
+> `RateLimitFilter` writes the 429 JSON response directly — it does not throw an exception,
+> so `GlobalErrorHandler` is not involved. Limits are configured in `application.yml`
+> under `rate-limit.reservations.*` and `rate-limit.orders.*`.
 
 ---
 

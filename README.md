@@ -12,6 +12,7 @@ Reactive backend for event ticket purchasing — built with Java 25, Spring Boot
 | Messaging | SQS Standard via ElasticMQ (SQS-compatible) — at-least-once delivery |
 | Build | Gradle 9.x multi-module |
 | Containerization | Podman (`podman compose`) |
+| Rate limiting | Resilience4j `RateLimiter` (in-memory, per-instance) |
 
 > **Runtime:** Java 25 LTS (`eclipse-temurin:25`). Language features used: records (all domain entities), pattern matching (`switch` on sealed `DomainException` hierarchy in `GlobalErrorHandler` and `MarkComplimentaryUseCase`), sealed classes (`DomainException` with `permits BusinessException, ConflictException, NotFoundException`).
 
@@ -52,6 +53,10 @@ panther-ticketing/
 9. **Eager ticket generation at event creation:** When an event (and each ticket type) is created, `CreateEventUseCase` pre-creates `totalQuantity` individual `Ticket` records in `AVAILABLE`. Every one of the five ticket states is therefore realized on a real record, and reservation expiry is a literal `RESERVED → AVAILABLE` transition on an existing row rather than a synthetic recomputation. The reservation, purchase, and expiry use cases all operate on these pre-materialized rows. For very large capacities a batched or lazy generation strategy (materializing tickets on demand, or in bounded chunks) would be used in production to cap write amplification at creation time; the eager approach is kept here because it makes the full state machine observable and correctness is the priority at this scope.
 10. **Order states:** `PENDING → PROCESSING → CONFIRMED | FAILED | EXPIRED` — separate lifecycle from ticket states.
 11. **No real AWS account needed:** DynamoDB Local + ElasticMQ run entirely offline and free.
+12. **Rate limiting — abuse prevention:** A `WebFilter` (`RateLimitFilter`, `@Order(-1)`) intercepts the two highest-risk write endpoints before they reach the router:
+    - `POST /api/v1/events/{eventId}/reservations` — default 10 req/s. Prevents inventory exhaustion via flood of reservations that expire without purchase.
+    - `POST /api/v1/orders` — default 5 req/s. Prevents queue flooding and duplicate-order spam.
+    Limits are configured exclusively in `application.yml` (`rate-limit.*`). When exceeded the API returns `429 Too Many Requests` with the same JSON error format as the rest of the API (`{status, error, message}`). The limit is global and in-memory per instance — in a multi-replica ECS deployment each replica maintains its own counter. A Redis-backed `RateLimiter` (Resilience4j supports it) would enforce a truly distributed limit; alternatively, rate limiting can be delegated to the ALB or API Gateway before traffic reaches the service.
 
 ## Installation
 
@@ -179,16 +184,16 @@ resets on `podman compose down` and the init container recreates a clean environ
 
 ## Endpoints
 
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/v1/events` | Create event with ticket types |
-| GET | `/api/v1/events` | List all events with availability |
-| GET | `/api/v1/events/{eventId}` | Get event |
-| GET | `/api/v1/events/{eventId}/availability?ticketTypeId=` | Real-time availability (req 4.7) |
-| POST | `/api/v1/events/{eventId}/reservations` | Reserve tickets — 10 min hold (req 4.2) |
-| POST | `/api/v1/orders` | Purchase (enqueue + return orderId) (req 4.3) |
-| GET | `/api/v1/orders/{orderId}` | Order status (req 4.4) |
-| POST | `/api/v1/events/{eventId}/complimentary` | Mark a reservation's tickets as complimentary (audited) |
+| Method | Path | Description | Rate limited |
+|---|---|---|---|
+| POST | `/api/v1/events` | Create event with ticket types | — |
+| GET | `/api/v1/events` | List all events with availability counters | — |
+| GET | `/api/v1/events/{eventId}` | Get single event with availability | — |
+| GET | `/api/v1/events/{eventId}/availability?ticketTypeId=` | Real-time availability O(1) (req 4.7) | — |
+| POST | `/api/v1/events/{eventId}/reservations` | Reserve tickets — 10 min hold (req 4.2) | ✅ 10 req/s |
+| POST | `/api/v1/orders` | Purchase (enqueue + return orderId) (req 4.3) | ✅ 5 req/s |
+| GET | `/api/v1/orders/{orderId}` | Order status (req 4.4) | — |
+| POST | `/api/v1/events/{eventId}/complimentary` | Mark a reservation's tickets as complimentary (audited) | — |
 
 ## Usage examples
 
@@ -226,16 +231,22 @@ curl --location 'http://localhost:8080/api/v1/events' \
 curl --location 'http://localhost:8080/api/v1/events'
 ```
 
-Response (array):
+Response (array) — each element includes the event metadata and a live snapshot of every ticket type's inventory:
 ```json
 [
   {
     "id": "{eventId}",
     "name": "Concierto Panther",
+    "description": "Prueba",
+    "date": "2026-12-01T20:00:00",
+    "venue": "Estadio Manizales",
+    "totalCapacity": 10,
     "ticketTypes": [
       {
         "id": "{ticketTypeId}",
         "name": "General",
+        "price": 50000,
+        "totalQuantity": 10,
         "availableCount": 10,
         "reservedCount": 0,
         "soldCount": 0,
@@ -366,3 +377,4 @@ No access keys are used — the app authenticates via the ECS task role.
 - **Gate scanning / `USED` state:** `SOLD → USED` via idempotent conditional write. Only one scanner wins; prevents double-entry. Would require a signed QR (JWT) for offline validation.
 - **Virtual threads (Project Loom):** WebFlux handles concurrency via event loop. Java 25 ships virtual threads as stable — they are an alternative for blocking-I/O workloads but are not needed in the reactive hot path.
 - **Observability:** Micrometer + Prometheus + Grafana dashboards for queue depth, reservation expiry rate, conflict rate.
+- **Distributed rate limiting:** Replace the in-memory `RateLimiter` with a Redis-backed implementation (Resilience4j supports it) so the limit is enforced globally across all ECS replicas. Alternatively, delegate to ALB or API Gateway before traffic reaches the service.

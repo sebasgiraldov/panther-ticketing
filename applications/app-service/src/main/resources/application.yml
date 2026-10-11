@@ -40,6 +40,20 @@ reservation:
   scheduler:
     delay-ms: ${RESERVATION_SCHEDULER_DELAY_MS:60000}
 
+# Rate limiting — global (shared across all callers, in-memory per instance).
+# reservations: max 10 POST /reservations per second (prevents inventory exhaustion).
+# orders:        max 5  POST /orders per second (prevents queue flooding).
+# timeout-millis: 0 → fail immediately instead of queuing the caller.
+rate-limit:
+  reservations:
+    limit-for-period: 10
+    refresh-period-seconds: 1
+    timeout-millis: 0
+  orders:
+    limit-for-period: 5
+    refresh-period-seconds: 1
+    timeout-millis: 0
+
 management:
   endpoints:
     web:
