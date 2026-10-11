@@ -110,7 +110,11 @@ cd panther-ticketing
 ## Execution
 
 Two ways to run the system. Both read local configuration from `.env` (dummy AWS credentials and
-local endpoints — no real AWS account needed).
+local endpoints — no real AWS account needed). Copy `.env.example` to `.env` before running:
+
+```bash
+cp .env.example .env
+```
 
 ### A) Everything in containers (recommended)
 
