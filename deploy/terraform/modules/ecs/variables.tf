@@ -1,0 +1,17 @@
+variable "environment"              { type = string }
+variable "aws_region"               { type = string }
+variable "app_port"                 { type = number }
+variable "app_image"                { type = string }
+variable "task_cpu"                 { type = number }
+variable "task_memory"              { type = number }
+variable "desired_count"            { type = number }
+variable "vpc_id"                   { type = string }
+variable "private_subnet_ids"       { type = list(string) }
+variable "alb_target_group_arn"     { type = string }
+variable "ecs_security_group_id"    { type = string }
+variable "task_execution_role_arn"  { type = string }
+variable "task_role_arn"            { type = string }
+variable "dynamodb_tables"          { type = map(string) }
+variable "sqs_queue_url"            { type = string }
+variable "reservation_minutes"      { type = number }
+variable "log_level"                { type = string }

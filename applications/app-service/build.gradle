@@ -1,0 +1,36 @@
+apply plugin: 'org.springframework.boot'
+
+dependencies {
+    implementation project(':model')
+    implementation project(':ports')
+    implementation project(':use-case')
+    implementation project(':reactive-web')
+    implementation project(':dynamodb')
+    implementation project(':sqs')
+    implementation project(':helpers')
+    implementation libs.boot.starter.webflux
+    implementation libs.boot.actuator
+    implementation libs.spring.dotenv
+    testImplementation libs.archunit
+}
+
+jar { enabled = false }
+
+bootJar {
+    archiveFileName = "app.${archiveExtension.get()}"
+}
+
+// Run the app from the repository root so spring-dotenv finds the .env file
+// (it is read from the process working directory, and the root is where .env lives).
+bootRun {
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('architectureTest', Test) {
+    description = "Runs architecture tests"
+    group = "verification"
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching "*ArchitectureTest" }
+}

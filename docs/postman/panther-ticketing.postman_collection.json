@@ -1,0 +1,268 @@
+{
+  "info": {
+    "name": "Panther Ticketing",
+    "description": "Reactive ticketing platform — end-to-end flow. IDs chain automatically between requests via collection variables set in Post-response scripts. Run top to bottom (or with the Collection Runner).\n\nBase URL variable: base_url (default http://localhost:8080).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8080" },
+    { "key": "event_id", "value": "" },
+    { "key": "ticket_type_id", "value": "" },
+    { "key": "reservation_id", "value": "" },
+    { "key": "order_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0. Estado de salud",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/actuator/health", "host": ["{{base_url}}"], "path": ["actuator", "health"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is UP', function () {",
+              "  pm.expect(pm.response.json().status).to.eql('UP');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Crear evento",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{base_url}}/api/v1/events", "host": ["{{base_url}}"], "path": ["api", "v1", "events"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Concierto Panther\",\n  \"description\": \"Prueba\",\n  \"date\": \"2026-12-01T20:00:00\",\n  \"venue\": \"Estadio Manizales\",\n  \"totalCapacity\": 20,\n  \"ticketTypes\": [\n    { \"name\": \"General\", \"price\": 50000, \"totalQuantity\": 20 }\n  ]\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.collectionVariables.set('event_id', res.id);",
+              "console.log('event_id =', res.id);",
+              "pm.test('event created with id', function () {",
+              "  pm.expect(res.id).to.be.a('string').and.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Listar eventos",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/api/v1/events", "host": ["{{base_url}}"], "path": ["api", "v1", "events"] },
+        "description": "Returns all events with their ticket types and current availability counters (availableCount, reservedCount, soldCount, complimentaryCount). Also captures ticket_type_id from the first event for use in subsequent requests."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test('returns array of events', function () {",
+              "  pm.expect(res).to.be.an('array').that.is.not.empty;",
+              "});",
+              "const first = res[0];",
+              "if (first && first.ticketTypes && first.ticketTypes.length > 0) {",
+              "  pm.collectionVariables.set('ticket_type_id', first.ticketTypes[0].id);",
+              "  console.log('ticket_type_id =', first.ticketTypes[0].id);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Obtener evento",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/events/{{event_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "events", "{{event_id}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "if (res.ticketTypes && res.ticketTypes.length > 0) {",
+              "  pm.collectionVariables.set('ticket_type_id', res.ticketTypes[0].id);",
+              "  console.log('ticket_type_id =', res.ticketTypes[0].id);",
+              "}",
+              "pm.test('event returns ticket types', function () {",
+              "  pm.expect(res.ticketTypes).to.be.an('array').that.is.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Consultar disponibilidad",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/events/{{event_id}}/availability?ticketTypeId={{ticket_type_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "events", "{{event_id}}", "availability"],
+          "query": [{ "key": "ticketTypeId", "value": "{{ticket_type_id}}" }]
+        }
+      }
+    },
+    {
+      "name": "5. Reservar entradas",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": {
+          "raw": "{{base_url}}/api/v1/events/{{event_id}}/reservations",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "events", "{{event_id}}", "reservations"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"ticketTypeId\": \"{{ticket_type_id}}\",\n  \"quantity\": 2,\n  \"customerRef\": \"cliente-123\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.collectionVariables.set('reservation_id', res.id);",
+              "console.log('reservation_id =', res.id);",
+              "pm.test('reservation is ACTIVE', function () {",
+              "  pm.expect(res.status).to.eql('ACTIVE');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Consultar disponibilidad tras reservar",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/events/{{event_id}}/availability?ticketTypeId={{ticket_type_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "events", "{{event_id}}", "availability"],
+          "query": [{ "key": "ticketTypeId", "value": "{{ticket_type_id}}" }]
+        }
+      }
+    },
+    {
+      "name": "7. Comprar",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{base_url}}/api/v1/orders", "host": ["{{base_url}}"], "path": ["api", "v1", "orders"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"reservationId\": \"{{reservation_id}}\",\n  \"customerRef\": \"cliente-123\"\n}"
+        },
+        "description": "Enqueues the purchase and returns orderId immediately (202 Accepted). The order starts as PENDING. The SQS consumer processes it asynchronously: PENDING → PROCESSING → CONFIRMED. Each ticket transitions RESERVED → PENDING_CONFIRMATION → SOLD internally. PENDING_CONFIRMATION is a transient state — you will never observe it via the API under normal operation. Poll step 8 until status is CONFIRMED."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.collectionVariables.set('order_id', res.id);",
+              "console.log('order_id =', res.id);",
+              "pm.test('order accepted', function () {",
+              "  pm.expect(res.id).to.be.a('string').and.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Consultar estado de la orden",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/orders/{{order_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "orders", "{{order_id}}"]
+        },
+        "description": "Poll until status is CONFIRMED. Possible values: PENDING (just enqueued), PROCESSING (consumer picked it up), CONFIRMED (tickets sold), FAILED (reservation expired before processing)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "console.log('order status =', res.status, '| totalAmount =', res.totalAmount);",
+              "pm.test('order processed (PENDING, PROCESSING or CONFIRMED)', function () {",
+              "  pm.expect(['PENDING','PROCESSING','CONFIRMED']).to.include(res.status);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Consultar disponibilidad tras la venta",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/events/{{event_id}}/availability?ticketTypeId={{ticket_type_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "events", "{{event_id}}", "availability"],
+          "query": [{ "key": "ticketTypeId", "value": "{{ticket_type_id}}" }]
+        }
+      }
+    },
+    {
+      "name": "10. Marcar entrada como cortesía",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": {
+          "raw": "{{base_url}}/api/v1/events/{{event_id}}/complimentary",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "events", "{{event_id}}", "complimentary"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"reservationId\": \"{{reservation_id}}\",\n  \"ownerRef\": \"invitado-vip\"\n}"
+        },
+        "description": "Marks ALL tickets of a reservation as COMPLIMENTARY (free, non-countable). This is an ALTERNATIVE ending to a reservation — it consumes the reservation just like a purchase (steps 7/8/9), so it requires its OWN fresh ACTIVE reservation. Before running this request, re-run step 5 so reservation_id points to an unpurchased reservation; otherwise the API responds 400 'Reservation is not ACTIVE or has expired'. Transitions: tickets RESERVED → COMPLIMENTARY, decrements reservedCount (availableCount and soldCount untouched), reservation → CONFIRMED."
+      }
+    }
+  ]
+}

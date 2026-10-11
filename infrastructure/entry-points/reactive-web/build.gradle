@@ -1,0 +1,9 @@
+dependencies {
+    implementation project(':model')
+    implementation project(':ports')
+    implementation project(':helpers')
+    implementation libs.boot.starter.webflux
+    implementation libs.jackson.databind
+    implementation libs.resilience4j.reactor
+    implementation libs.resilience4j.ratelimiter
+}

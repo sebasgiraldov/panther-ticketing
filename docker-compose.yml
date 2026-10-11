@@ -1,0 +1,84 @@
+# Compose v2 (no top-level `version:` key needed).
+services:
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: panther-dynamodb
+    ports:
+      - "8000:8000"
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
+    healthcheck:
+      # DynamoDB Local answers any request; a 400 from a bad target still means it's up.
+      test: ["CMD-SHELL", "curl -s -o /dev/null http://localhost:8000 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # SQS-compatible queue server (free, open-source, no license token required).
+  # Replaces LocalStack, whose recent versions gate SQS behind a paid auth token.
+  # The app's SqsAsyncClient talks to it unchanged — ElasticMQ implements the SQS API.
+  sqs:
+    image: softwaremill/elasticmq-native:latest
+    container_name: panther-sqs
+    ports:
+      - "9324:9324"   # SQS API
+    volumes:
+      - ./deploy/local/elasticmq.conf:/opt/elasticmq.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- 'http://localhost:9324/?Action=ListQueues' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  # Web UI for DynamoDB Local → http://localhost:8001 (browse tables, scan items)
+  dynamodb-admin:
+    image: aaronshaf/dynamodb-admin:latest
+    container_name: panther-dynamodb-admin
+    ports:
+      - "8001:8001"
+    environment:
+      - DYNAMO_ENDPOINT=http://dynamodb-local:8000
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=dummy
+      - AWS_SECRET_ACCESS_KEY=dummy
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
+
+  # One-shot provisioning (LOCAL equivalent of Terraform/IaC).
+  # Creates DynamoDB tables + SQS queues, then exits. Idempotent.
+  init-resources:
+    image: amazon/aws-cli:latest
+    container_name: panther-init
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
+      sqs:
+        condition: service_healthy
+    environment:
+      - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
+      - SQS_ENDPOINT=http://sqs:9324
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=dummy
+      - AWS_SECRET_ACCESS_KEY=dummy
+    entrypoint: ["/bin/sh", "/init/init-resources.sh"]
+    volumes:
+      - ./deploy/local:/init:ro
+
+  app:
+    build: .
+    container_name: panther-ticketing
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
+      - SQS_ENDPOINT=http://sqs:9324
+      - SQS_QUEUE_URL=http://sqs:9324/000000000000/panther-orders
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
+      sqs:
+        condition: service_healthy
+      init-resources:
+        condition: service_completed_successfully

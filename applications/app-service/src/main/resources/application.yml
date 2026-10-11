@@ -1,0 +1,70 @@
+spring:
+  application:
+    name: panther-ticketing
+  lifecycle:
+    timeout-per-shutdown-phase: ${SHUTDOWN_TIMEOUT:30s}
+  jackson:
+    time-zone: UTC
+
+server:
+  port: ${SERVER_PORT:8080}
+  address: 0.0.0.0
+  shutdown: graceful
+
+# All values default to the local-development setup (DynamoDB Local + ElasticMQ).
+# Any value can be overridden via environment variables (e.g. in production, injected
+# from AWS Secrets Manager / SSM). Credentials are dummies locally — the emulators do
+# not validate them; real deployments must provide real credentials via the environment.
+aws:
+  region: ${AWS_REGION:us-east-1}
+  access-key-id: ${AWS_ACCESS_KEY_ID:dummy}
+  secret-access-key: ${AWS_SECRET_ACCESS_KEY:dummy}
+  dynamodb:
+    endpoint: ${DYNAMODB_ENDPOINT:http://localhost:8000}
+    tables:
+      events: ${DYNAMODB_TABLE_EVENTS:panther-events}
+      ticket-types: ${DYNAMODB_TABLE_TICKET_TYPES:panther-ticket-types}
+      tickets: ${DYNAMODB_TABLE_TICKETS:panther-tickets}
+      reservations: ${DYNAMODB_TABLE_RESERVATIONS:panther-reservations}
+      orders: ${DYNAMODB_TABLE_ORDERS:panther-orders}
+      inventory: ${DYNAMODB_TABLE_INVENTORY:panther-inventory}
+      audit: ${DYNAMODB_TABLE_AUDIT:panther-audit}
+  sqs:
+    endpoint: ${SQS_ENDPOINT:http://localhost:9324}
+    queue-url: ${SQS_QUEUE_URL:http://localhost:9324/000000000000/panther-orders}
+
+reservation:
+  minutes: ${RESERVATION_MINUTES:10}
+  max-retries: ${RESERVATION_MAX_RETRIES:3}
+  retry-backoff-ms: ${RESERVATION_RETRY_BACKOFF_MS:100}
+  scheduler:
+    delay-ms: ${RESERVATION_SCHEDULER_DELAY_MS:60000}
+
+# Rate limiting — global (shared across all callers, in-memory per instance).
+# reservations: max 10 POST /reservations per second (prevents inventory exhaustion).
+# orders:        max 5  POST /orders per second (prevents queue flooding).
+# timeout-millis: 0 → fail immediately instead of queuing the caller.
+rate-limit:
+  reservations:
+    limit-for-period: 10
+    refresh-period-seconds: 1
+    timeout-millis: 0
+  orders:
+    limit-for-period: 5
+    refresh-period-seconds: 1
+    timeout-millis: 0
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health"
+      base-path: "/actuator"
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    root: ${LOG_LEVEL:INFO}
+    com.panther.ticketing: ${LOG_LEVEL:INFO}

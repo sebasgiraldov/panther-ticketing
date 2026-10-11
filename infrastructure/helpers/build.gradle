@@ -1,0 +1,5 @@
+dependencies {
+    implementation project(':model')
+    implementation libs.boot.starter.webflux
+    implementation libs.jackson.databind
+}

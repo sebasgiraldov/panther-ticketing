@@ -1,0 +1,4 @@
+// domain/ports — depends only on model + reactor for Mono/Flux
+dependencies {
+    implementation project(':model')
+}

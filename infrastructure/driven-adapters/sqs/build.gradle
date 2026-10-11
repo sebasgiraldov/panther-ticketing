@@ -1,0 +1,9 @@
+dependencies {
+    implementation project(':model')
+    implementation project(':ports')
+    implementation project(':use-case')
+    implementation libs.boot.starter.webflux
+    implementation libs.awssdk.sqs
+    implementation libs.awssdk.netty
+    implementation libs.jackson.databind
+}
