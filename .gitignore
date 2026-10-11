@@ -55,7 +55,7 @@ replay_pid*
 .agents/
 
 # ---------------------------------------------------------------------------
-# Local secrets — .env is committed here ONLY because it holds dummy local
-# values for DynamoDB Local / ElasticMQ. Never commit real credentials.
+# Local secrets — never commit real credentials.
+# Copy .env.example to .env and fill in the values.
 # ---------------------------------------------------------------------------
-# .env
+.env
