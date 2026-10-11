@@ -9,7 +9,14 @@ import com.panther.ticketing.model.event.InventoryCounter;
 import com.panther.ticketing.model.event.TicketType;
 import com.panther.ticketing.model.order.Order;
 import com.panther.ticketing.model.reservation.Reservation;
-import com.panther.ticketing.ports.in.*;
+import com.panther.ticketing.ports.in.ICheckAvailability;
+import com.panther.ticketing.ports.in.ICreateEvent;
+import com.panther.ticketing.ports.in.IGetEvent;
+import com.panther.ticketing.ports.in.IGetOrderStatus;
+import com.panther.ticketing.ports.in.IListEvents;
+import com.panther.ticketing.ports.in.IMarkComplimentary;
+import com.panther.ticketing.ports.in.IPurchaseTickets;
+import com.panther.ticketing.ports.in.IReserveTickets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,6 +41,7 @@ class ApiHandlerTest {
 
     @Mock ICreateEvent createEvent;
     @Mock IGetEvent getEvent;
+    @Mock IListEvents listEvents;
     @Mock ICheckAvailability checkAvailability;
     @Mock IReserveTickets reserveTickets;
     @Mock IPurchaseTickets purchaseTickets;
@@ -50,10 +58,23 @@ class ApiHandlerTest {
 
     @BeforeEach
     void setUp() {
-        ApiHandler handler = new ApiHandler(createEvent, getEvent, checkAvailability,
+        ApiHandler handler = new ApiHandler(createEvent, getEvent, listEvents, checkAvailability,
                 reserveTickets, purchaseTickets, getOrderStatus, markComplimentary);
         RouterRest router = new RouterRest();
         webTestClient = WebTestClient.bindToRouterFunction(router.routes(handler)).build();
+    }
+
+    @Test
+    void listEvents_returns200() {
+        Event event = new Event(EVENT_ID, "Concert", "Desc", NOW, "Venue", 10, NOW);
+        TicketType tt = new TicketType(TT_ID, EVENT_ID, "General", BigDecimal.valueOf(50), 10);
+        InventoryCounter counter = new InventoryCounter(EVENT_ID, TT_ID, 10, 0, 0, 0, 0L);
+        EventDetails details = new EventDetails(event, List.of(new EventDetails.TicketTypeAvailability(tt, counter)));
+        when(listEvents.execute()).thenReturn(reactor.core.publisher.Flux.just(details));
+
+        webTestClient.get().uri("/api/v1/events")
+                .exchange()
+                .expectStatus().isOk();
     }
 
     @Test
@@ -76,7 +97,7 @@ class ApiHandlerTest {
     void getEvent_returns200() {
         Event event = new Event(EVENT_ID, "Concert", "Desc", NOW, "Venue", 10, NOW);
         TicketType tt = new TicketType(TT_ID, EVENT_ID, "General", BigDecimal.valueOf(50), 10);
-        InventoryCounter counter = new InventoryCounter(EVENT_ID, TT_ID, 10, 0, 0, 0L);
+        InventoryCounter counter = new InventoryCounter(EVENT_ID, TT_ID, 10, 0, 0, 0, 0L);
         EventDetails details = new EventDetails(event, List.of(new EventDetails.TicketTypeAvailability(tt, counter)));
         when(getEvent.execute(EVENT_ID)).thenReturn(Mono.just(details));
 
@@ -87,7 +108,7 @@ class ApiHandlerTest {
 
     @Test
     void checkAvailability_returns200() {
-        InventoryCounter counter = new InventoryCounter(EVENT_ID, TT_ID, 8, 2, 0, 0L);
+        InventoryCounter counter = new InventoryCounter(EVENT_ID, TT_ID, 8, 2, 0, 0, 0L);
         when(checkAvailability.execute(EVENT_ID, TT_ID)).thenReturn(Mono.just(counter));
 
         webTestClient.get()

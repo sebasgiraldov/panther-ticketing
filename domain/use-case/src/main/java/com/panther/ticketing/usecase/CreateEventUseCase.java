@@ -54,7 +54,7 @@ public class CreateEventUseCase implements ICreateEvent {
                                     .flatMap(savedTt -> {
                                         InventoryCounter counter = new InventoryCounter(
                                                 saved.id(), savedTt.id(),
-                                                savedTt.totalQuantity(), 0, 0, 0L);
+                                                savedTt.totalQuantity(), 0, 0, 0, 0L);
                                         return eventRepository.saveInventoryCounter(counter)
                                                 .then(generateTickets(saved.id(), savedTt, now));
                                     });

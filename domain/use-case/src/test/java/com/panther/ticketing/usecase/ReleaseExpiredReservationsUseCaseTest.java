@@ -68,8 +68,8 @@ class ReleaseExpiredReservationsUseCaseTest {
         Ticket t1 = new Ticket(UUID.randomUUID(), eventId, ttId, TicketStatus.RESERVED,
                 BigDecimal.valueOf(50), null, "customer", reservationId, 0L, now, now);
         Ticket released = t1.release();
-        InventoryCounter counter = new InventoryCounter(eventId, ttId, 0, 1, 0, 0L);
-        InventoryCounter updated = new InventoryCounter(eventId, ttId, 1, 0, 0, 1L);
+        InventoryCounter counter = new InventoryCounter(eventId, ttId, 0, 1, 0, 0, 0L);
+        InventoryCounter updated = new InventoryCounter(eventId, ttId, 1, 0, 0, 0, 1L);
 
         when(reservationRepository.findByStatusAndExpiresAtBefore(ReservationStatus.ACTIVE, now))
                 .thenReturn(Flux.just(active));

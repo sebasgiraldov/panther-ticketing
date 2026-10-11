@@ -3,7 +3,14 @@ package com.panther.ticketing.api.handlers;
 import com.panther.ticketing.api.dto.*;
 import com.panther.ticketing.api.mapper.ApiMapper;
 import com.panther.ticketing.helper.RequestParameterValidator;
-import com.panther.ticketing.ports.in.*;
+import com.panther.ticketing.ports.in.ICheckAvailability;
+import com.panther.ticketing.ports.in.ICreateEvent;
+import com.panther.ticketing.ports.in.IGetEvent;
+import com.panther.ticketing.ports.in.IGetOrderStatus;
+import com.panther.ticketing.ports.in.IListEvents;
+import com.panther.ticketing.ports.in.IMarkComplimentary;
+import com.panther.ticketing.ports.in.IPurchaseTickets;
+import com.panther.ticketing.ports.in.IReserveTickets;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
@@ -18,6 +25,7 @@ public class ApiHandler extends RequestParameterValidator {
 
     private final ICreateEvent createEvent;
     private final IGetEvent getEvent;
+    private final IListEvents listEvents;
     private final ICheckAvailability checkAvailability;
     private final IReserveTickets reserveTickets;
     private final IPurchaseTickets purchaseTickets;
@@ -25,11 +33,13 @@ public class ApiHandler extends RequestParameterValidator {
     private final IMarkComplimentary markComplimentary;
 
     public ApiHandler(ICreateEvent createEvent, IGetEvent getEvent,
+                      IListEvents listEvents,
                       ICheckAvailability checkAvailability, IReserveTickets reserveTickets,
                       IPurchaseTickets purchaseTickets, IGetOrderStatus getOrderStatus,
                       IMarkComplimentary markComplimentary) {
         this.createEvent = createEvent;
         this.getEvent = getEvent;
+        this.listEvents = listEvents;
         this.checkAvailability = checkAvailability;
         this.reserveTickets = reserveTickets;
         this.purchaseTickets = purchaseTickets;
@@ -42,6 +52,13 @@ public class ApiHandler extends RequestParameterValidator {
                 .flatMap(req -> createEvent.execute(ApiMapper.toEvent(req), ApiMapper.toTicketTypes(req)))
                 .map(ApiMapper::toEventResponse)
                 .flatMap(resp -> ServerResponse.status(HttpStatus.CREATED).bodyValue(resp));
+    }
+
+    public Mono<ServerResponse> listEvents(ServerRequest request) {
+        return listEvents.execute()
+                .map(ApiMapper::toEventResponse)
+                .collectList()
+                .flatMap(resp -> ServerResponse.ok().bodyValue(resp));
     }
 
     public Mono<ServerResponse> getEvent(ServerRequest request) {
@@ -74,8 +91,16 @@ public class ApiHandler extends RequestParameterValidator {
 
     public Mono<ServerResponse> purchaseTickets(ServerRequest request) {
         return request.bodyToMono(PurchaseRequest.class)
-                .flatMap(req -> purchaseTickets.execute(
-                        UUID.fromString(req.reservationId()), req.customerRef(), req.idempotencyKey()))
+                .flatMap(req -> {
+                    if (req.reservationId() == null || req.reservationId().isBlank()) {
+                        return Mono.error(new com.panther.ticketing.model.exception.BusinessException("reservationId is required"));
+                    }
+                    if (req.customerRef() == null || req.customerRef().isBlank()) {
+                        return Mono.error(new com.panther.ticketing.model.exception.BusinessException("customerRef is required"));
+                    }
+                    return purchaseTickets.execute(
+                            UUID.fromString(req.reservationId()), req.customerRef(), req.idempotencyKey());
+                })
                 .map(ApiMapper::toOrderResponse)
                 .flatMap(resp -> ServerResponse.status(HttpStatus.ACCEPTED).bodyValue(resp));
     }

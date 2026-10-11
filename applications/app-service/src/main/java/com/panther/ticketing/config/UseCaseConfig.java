@@ -1,6 +1,15 @@
 package com.panther.ticketing.config;
 
-import com.panther.ticketing.ports.in.*;
+import com.panther.ticketing.ports.in.ICheckAvailability;
+import com.panther.ticketing.ports.in.ICreateEvent;
+import com.panther.ticketing.ports.in.IGetEvent;
+import com.panther.ticketing.ports.in.IGetOrderStatus;
+import com.panther.ticketing.ports.in.IListEvents;
+import com.panther.ticketing.ports.in.IMarkComplimentary;
+import com.panther.ticketing.ports.in.IProcessOrder;
+import com.panther.ticketing.ports.in.IPurchaseTickets;
+import com.panther.ticketing.ports.in.IReleaseExpiredReservations;
+import com.panther.ticketing.ports.in.IReserveTickets;
 import com.panther.ticketing.ports.out.*;
 import com.panther.ticketing.usecase.*;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +30,11 @@ public class UseCaseConfig {
     public ICreateEvent createEventUseCase(
             EventRepository eventRepository, TicketRepository ticketRepository, TimeProvider timeProvider) {
         return new CreateEventUseCase(eventRepository, ticketRepository, timeProvider);
+    }
+
+    @Bean
+    public IListEvents listEventsUseCase(EventRepository eventRepository) {
+        return new ListEventsUseCase(eventRepository);
     }
 
     @Bean

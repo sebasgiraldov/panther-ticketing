@@ -62,7 +62,35 @@
       ]
     },
     {
-      "name": "2. Obtener evento",
+      "name": "2. Listar eventos",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/api/v1/events", "host": ["{{base_url}}"], "path": ["api", "v1", "events"] },
+        "description": "Returns all events with their ticket types and current availability counters (availableCount, reservedCount, soldCount, complimentaryCount). Also captures ticket_type_id from the first event for use in subsequent requests."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test('returns array of events', function () {",
+              "  pm.expect(res).to.be.an('array').that.is.not.empty;",
+              "});",
+              "const first = res[0];",
+              "if (first && first.ticketTypes && first.ticketTypes.length > 0) {",
+              "  pm.collectionVariables.set('ticket_type_id', first.ticketTypes[0].id);",
+              "  console.log('ticket_type_id =', first.ticketTypes[0].id);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Obtener evento",
       "request": {
         "method": "GET",
         "header": [],
@@ -92,7 +120,7 @@
       ]
     },
     {
-      "name": "3. Consultar disponibilidad",
+      "name": "4. Consultar disponibilidad",
       "request": {
         "method": "GET",
         "header": [],
@@ -105,7 +133,7 @@
       }
     },
     {
-      "name": "4. Reservar entradas",
+      "name": "5. Reservar entradas",
       "request": {
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/json" }],
@@ -137,7 +165,7 @@
       ]
     },
     {
-      "name": "5. Consultar disponibilidad tras reservar",
+      "name": "6. Consultar disponibilidad tras reservar",
       "request": {
         "method": "GET",
         "header": [],
@@ -150,7 +178,7 @@
       }
     },
     {
-      "name": "6. Comprar",
+      "name": "7. Comprar",
       "request": {
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/json" }],
@@ -158,7 +186,8 @@
         "body": {
           "mode": "raw",
           "raw": "{\n  \"reservationId\": \"{{reservation_id}}\",\n  \"customerRef\": \"cliente-123\"\n}"
-        }
+        },
+        "description": "Enqueues the purchase and returns orderId immediately (202 Accepted). The order starts as PENDING. The SQS consumer processes it asynchronously: PENDING → PROCESSING → CONFIRMED. Each ticket transitions RESERVED → PENDING_CONFIRMATION → SOLD internally. PENDING_CONFIRMATION is a transient state — you will never observe it via the API under normal operation. Poll step 8 until status is CONFIRMED."
       },
       "event": [
         {
@@ -178,7 +207,7 @@
       ]
     },
     {
-      "name": "7. Consultar estado de la orden",
+      "name": "8. Consultar estado de la orden",
       "request": {
         "method": "GET",
         "header": [],
@@ -186,7 +215,8 @@
           "raw": "{{base_url}}/api/v1/orders/{{order_id}}",
           "host": ["{{base_url}}"],
           "path": ["api", "v1", "orders", "{{order_id}}"]
-        }
+        },
+        "description": "Poll until status is CONFIRMED. Possible values: PENDING (just enqueued), PROCESSING (consumer picked it up), CONFIRMED (tickets sold), FAILED (reservation expired before processing)."
       },
       "event": [
         {
@@ -196,7 +226,7 @@
             "exec": [
               "const res = pm.response.json();",
               "console.log('order status =', res.status, '| totalAmount =', res.totalAmount);",
-              "pm.test('order processed (PROCESSING or CONFIRMED)', function () {",
+              "pm.test('order processed (PENDING, PROCESSING or CONFIRMED)', function () {",
               "  pm.expect(['PENDING','PROCESSING','CONFIRMED']).to.include(res.status);",
               "});"
             ]
@@ -205,7 +235,7 @@
       ]
     },
     {
-      "name": "8. Consultar disponibilidad tras la venta",
+      "name": "9. Consultar disponibilidad tras la venta",
       "request": {
         "method": "GET",
         "header": [],
@@ -218,7 +248,7 @@
       }
     },
     {
-      "name": "9. Marcar entrada como cortesía",
+      "name": "10. Marcar entrada como cortesía",
       "request": {
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/json" }],
@@ -231,7 +261,7 @@
           "mode": "raw",
           "raw": "{\n  \"reservationId\": \"{{reservation_id}}\",\n  \"ownerRef\": \"invitado-vip\"\n}"
         },
-        "description": "Marca TODAS las entradas de una reserva como COMPLIMENTARY (cortesía, gratis y no contabilizadas). Es un final OPCIONAL alternativo de la reserva: consume la reserva igual que la compra (6/7/8), así que necesita su PROPIA reserva ACTIVE recién creada. Antes de ejecutar esta petición vuelve a correr '4. Reservar entradas' para que reservation_id apunte a una reserva sin comprar; en caso contrario, si la reserva ya fue comprada o marcada, la API responde 400 'Reservation is not ACTIVE or has expired'. Al ejecutarse mueve las entradas RESERVED -> COMPLIMENTARY, reduce reservedCount (sin tocar availableCount ni soldCount) y deja la reserva en CONFIRMED."
+        "description": "Marks ALL tickets of a reservation as COMPLIMENTARY (free, non-countable). This is an ALTERNATIVE ending to a reservation — it consumes the reservation just like a purchase (steps 7/8/9), so it requires its OWN fresh ACTIVE reservation. Before running this request, re-run step 5 so reservation_id points to an unpurchased reservation; otherwise the API responds 400 'Reservation is not ACTIVE or has expired'. Transitions: tickets RESERVED → COMPLIMENTARY, decrements reservedCount (availableCount and soldCount untouched), reservation → CONFIRMED."
       }
     }
   ]

@@ -31,7 +31,7 @@ class CheckAvailabilityUseCaseTest {
     void execute_returnsCounter() {
         UUID eventId = UUID.randomUUID();
         UUID ttId = UUID.randomUUID();
-        InventoryCounter counter = new InventoryCounter(eventId, ttId, 10, 2, 1, 0L);
+        InventoryCounter counter = new InventoryCounter(eventId, ttId, 10, 2, 1, 0, 0L);
         when(eventRepository.findInventoryCounter(eventId, ttId)).thenReturn(Mono.just(counter));
 
         StepVerifier.create(useCase.execute(eventId, ttId))

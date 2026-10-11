@@ -32,14 +32,19 @@ public class GlobalErrorHandler implements WebExceptionHandler {
 
     @Override
     public Mono<Void> handle(ServerWebExchange exchange, Throwable ex) {
-        if (ex instanceof DomainException) {
-            log.warn("Business error on {}: {}", exchange.getRequest().getPath(), ex.getMessage());
-        } else {
-            log.error("Unhandled error on {}: {}", exchange.getRequest().getPath(), ex.getMessage());
+        // Unwrap Reactor wrapper exceptions (RetryExhaustedException, etc.) to get the root cause
+        Throwable cause = ex;
+        while (cause.getCause() != null && !(cause instanceof DomainException)) {
+            cause = cause.getCause();
         }
 
-        // Pattern matching exhaustivo sobre sealed DomainException hierarchy
-        HttpStatus status = switch (ex) {
+        if (cause instanceof DomainException) {
+            log.warn("Business error on {}: {}", exchange.getRequest().getPath(), cause.getMessage());
+        } else {
+            log.error("Unhandled error on {}: {}", exchange.getRequest().getPath(), cause.getMessage());
+        }
+
+        HttpStatus status = switch (cause) {
             case NotFoundException e -> HttpStatus.NOT_FOUND;
             case ConflictException e -> HttpStatus.CONFLICT;
             case BusinessException e -> HttpStatus.BAD_REQUEST;
@@ -50,7 +55,7 @@ public class GlobalErrorHandler implements WebExceptionHandler {
         Map<String, Object> body = Map.of(
                 "status", status.value(),
                 "error", status.getReasonPhrase(),
-                "message", ex.getMessage() != null ? ex.getMessage() : "Unexpected error"
+                "message", cause.getMessage() != null ? cause.getMessage() : "Unexpected error"
         );
 
         exchange.getResponse().setStatusCode(status);

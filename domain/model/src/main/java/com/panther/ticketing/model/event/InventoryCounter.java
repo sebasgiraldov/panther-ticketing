@@ -13,9 +13,10 @@ public record InventoryCounter(
         int availableCount,
         int reservedCount,
         int soldCount,
+        int complimentaryCount,
         long version
 ) {
     public int totalCount() {
-        return availableCount + reservedCount + soldCount;
+        return availableCount + reservedCount + soldCount + complimentaryCount;
     }
 }

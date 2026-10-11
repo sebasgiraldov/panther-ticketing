@@ -39,7 +39,8 @@ public final class ApiMapper {
                     InventoryCounter counter = tta.availability();
                     return new TicketTypeAvailabilityResponse(
                             tt.id(), tt.name(), tt.price(), tt.totalQuantity(),
-                            counter.availableCount(), counter.reservedCount(), counter.soldCount());
+                            counter.availableCount(), counter.reservedCount(), counter.soldCount(),
+                            counter.complimentaryCount());
                 })
                 .toList();
         return new EventResponse(event.id(), event.name(), event.description(),
@@ -48,7 +49,8 @@ public final class ApiMapper {
 
     public static AvailabilityResponse toAvailabilityResponse(InventoryCounter counter) {
         return new AvailabilityResponse(counter.eventId(), counter.ticketTypeId(),
-                counter.availableCount(), counter.reservedCount(), counter.soldCount());
+                counter.availableCount(), counter.reservedCount(), counter.soldCount(),
+                counter.complimentaryCount());
     }
 
     public static ReservationResponse toReservationResponse(Reservation reservation) {

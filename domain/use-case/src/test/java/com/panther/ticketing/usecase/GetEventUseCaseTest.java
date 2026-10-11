@@ -38,7 +38,7 @@ class GetEventUseCaseTest {
         UUID ttId = UUID.randomUUID();
         Event event = new Event(eventId, "Concert", "Desc", LocalDateTime.now(), "Venue", 10, LocalDateTime.now());
         TicketType tt = new TicketType(ttId, eventId, "General", BigDecimal.valueOf(50), 10);
-        InventoryCounter counter = new InventoryCounter(eventId, ttId, 8, 2, 0, 0L);
+        InventoryCounter counter = new InventoryCounter(eventId, ttId, 8, 2, 0, 0, 0L);
 
         when(eventRepository.findById(eventId)).thenReturn(Mono.just(event));
         when(eventRepository.findTicketTypesByEventId(eventId)).thenReturn(Flux.just(tt));

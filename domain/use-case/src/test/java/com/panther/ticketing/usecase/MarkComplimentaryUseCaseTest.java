@@ -61,8 +61,8 @@ class MarkComplimentaryUseCaseTest {
         Reservation reservation = activeReservation(reservationId, now.plusMinutes(10));
         Ticket t1 = reservedTicket(reservationId);
         Ticket complimentary = t1.markComplimentary("vip");
-        InventoryCounter counter = new InventoryCounter(eventId, ttId, 8, 2, 0, 0L);
-        InventoryCounter updated = new InventoryCounter(eventId, ttId, 8, 0, 0, 1L);
+        InventoryCounter counter = new InventoryCounter(eventId, ttId, 8, 2, 0, 0, 0L);
+        InventoryCounter updated = new InventoryCounter(eventId, ttId, 8, 0, 0, 1, 1L);
         Reservation confirmed = reservation.confirm();
 
         when(reservationRepository.findById(reservationId)).thenReturn(Mono.just(reservation));

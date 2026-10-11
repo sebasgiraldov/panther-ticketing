@@ -50,7 +50,7 @@ class CreateEventUseCaseTest {
         TicketType tt = new TicketType(ttId, null, "General", BigDecimal.valueOf(100), 2);
         Event saved = new Event(eventId, "Concert", "Desc", LocalDateTime.now(), "Venue", 5, LocalDateTime.now());
         TicketType savedTt = new TicketType(ttId, eventId, "General", BigDecimal.valueOf(100), 2);
-        InventoryCounter counter = new InventoryCounter(eventId, ttId, 2, 0, 0, 0L);
+        InventoryCounter counter = new InventoryCounter(eventId, ttId, 2, 0, 0, 0, 0L);
 
         when(eventRepository.save(any())).thenReturn(Mono.just(saved));
         when(eventRepository.saveTicketType(any())).thenReturn(Mono.just(savedTt));
@@ -70,7 +70,7 @@ class CreateEventUseCaseTest {
         Event event = new Event(eventId, "Concert", "Desc", LocalDateTime.now(), "Venue", 5, existing);
         TicketType tt = new TicketType(ttId, null, "VIP", BigDecimal.valueOf(200), 1);
         TicketType savedTt = new TicketType(ttId, eventId, "VIP", BigDecimal.valueOf(200), 1);
-        InventoryCounter counter = new InventoryCounter(eventId, ttId, 1, 0, 0, 0L);
+        InventoryCounter counter = new InventoryCounter(eventId, ttId, 1, 0, 0, 0, 0L);
 
         when(eventRepository.save(any())).thenReturn(Mono.just(event));
         when(eventRepository.saveTicketType(any())).thenReturn(Mono.just(savedTt));

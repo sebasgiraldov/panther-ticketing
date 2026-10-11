@@ -65,6 +65,13 @@ public class EventDynamoAdapter implements EventRepository {
     }
 
     @Override
+    public Flux<Event> findAll() {
+        return Mono.fromFuture(() -> client.scan(ScanRequest.builder()
+                        .tableName(eventsTable).build()))
+                .flatMapMany(resp -> Flux.fromIterable(resp.items()).map(this::mapToEvent));
+    }
+
+    @Override
     public Mono<Event> findById(UUID id) {
         return Mono.fromFuture(() -> client.getItem(GetItemRequest.builder()
                         .tableName(eventsTable)
@@ -143,6 +150,7 @@ public class EventDynamoAdapter implements EventRepository {
         item.put("availableCount", n(counter.availableCount()));
         item.put("reservedCount", n(counter.reservedCount()));
         item.put("soldCount", n(counter.soldCount()));
+        item.put("complimentaryCount", n(counter.complimentaryCount()));
         item.put("version", n(counter.version()));
 
         return Mono.fromFuture(() -> client.putItem(PutItemRequest.builder()
@@ -220,12 +228,13 @@ public class EventDynamoAdapter implements EventRepository {
         return Mono.fromFuture(() -> client.updateItem(UpdateItemRequest.builder()
                         .tableName(inventoryTable)
                         .key(Map.of("pk", s(pk)))
-                        .updateExpression("SET reservedCount = reservedCount - :qty, #v = #v + :one")
+                        .updateExpression("SET reservedCount = reservedCount - :qty, complimentaryCount = if_not_exists(complimentaryCount, :zero) + :qty, #v = #v + :one")
                         .conditionExpression("reservedCount >= :qty AND #v = :expectedVersion")
                         .expressionAttributeNames(Map.of("#v", "version"))
                         .expressionAttributeValues(Map.of(
                                 ":qty", n(quantity),
                                 ":one", n(1),
+                                ":zero", n(0),
                                 ":expectedVersion", n(expectedVersion)))
                         .returnValues(ReturnValue.ALL_NEW)
                         .build()))
@@ -252,6 +261,7 @@ public class EventDynamoAdapter implements EventRepository {
         return new InventoryCounter(
                 getUUID(item, "eventId"), getUUID(item, "ticketTypeId"),
                 getInt(item, "availableCount"), getInt(item, "reservedCount"),
-                getInt(item, "soldCount"), getLong(item, "version"));
+                getInt(item, "soldCount"), getInt(item, "complimentaryCount"),
+                getLong(item, "version"));
     }
 }

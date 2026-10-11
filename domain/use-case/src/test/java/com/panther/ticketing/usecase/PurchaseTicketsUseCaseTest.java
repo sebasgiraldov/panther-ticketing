@@ -54,9 +54,8 @@ class PurchaseTicketsUseCaseTest {
     void execute_idempotency_returnsExistingOrder() {
         UUID reservationId = UUID.randomUUID();
         Order existing = order(reservationId, OrderStatus.CONFIRMED);
-        when(orderRepository.findByIdempotencyKey("idem-key")).thenReturn(Mono.just(existing));
-        // createAndEnqueue is eagerly constructed as switchIfEmpty argument; stub to avoid NPE
-        when(reservationRepository.findById(reservationId)).thenReturn(Mono.empty());
+        // effective key now includes customerRef
+        when(orderRepository.findByIdempotencyKey("idem-key:customer")).thenReturn(Mono.just(existing));
 
         StepVerifier.create(useCase.execute(reservationId, "customer", "idem-key"))
                 .expectNext(existing)
@@ -64,15 +63,27 @@ class PurchaseTicketsUseCaseTest {
     }
 
     @Test
-    void execute_nullIdempotencyKey_usesReservationId() {
+    void execute_idempotency_differentCustomer_throwsBusinessException() {
+        UUID reservationId = UUID.randomUUID();
+        Order existing = order(reservationId, OrderStatus.CONFIRMED); // customerRef = "customer"
+        when(orderRepository.findByIdempotencyKey("idem-key:otro-cliente")).thenReturn(Mono.just(existing));
+
+        StepVerifier.create(useCase.execute(reservationId, "otro-cliente", "idem-key"))
+                .expectError(BusinessException.class)
+                .verify();
+    }
+
+    @Test
+    void execute_nullIdempotencyKey_usesReservationIdWithCustomerRef() {
         UUID reservationId = UUID.randomUUID();
         UUID ttId = UUID.randomUUID();
         UUID eventId = UUID.randomUUID();
         Reservation reservation = activeReservation(reservationId, eventId, ttId, now.plusMinutes(10));
         TicketType tt = new TicketType(ttId, eventId, "General", BigDecimal.valueOf(50), 5);
         Order saved = order(reservationId, OrderStatus.PENDING);
+        String expectedKey = reservationId + ":customer";
 
-        when(orderRepository.findByIdempotencyKey(reservationId.toString())).thenReturn(Mono.empty());
+        when(orderRepository.findByIdempotencyKey(expectedKey)).thenReturn(Mono.empty());
         when(reservationRepository.findById(reservationId)).thenReturn(Mono.just(reservation));
         when(eventRepository.findTicketTypeById(ttId)).thenReturn(Mono.just(tt));
         when(orderRepository.save(any())).thenReturn(Mono.just(saved));
@@ -91,6 +102,22 @@ class PurchaseTicketsUseCaseTest {
 
         StepVerifier.create(useCase.execute(reservationId, "customer", "key"))
                 .expectError(NotFoundException.class)
+                .verify();
+    }
+
+    @Test
+    void execute_wrongCustomerRef_throwsBusinessException() {
+        UUID reservationId = UUID.randomUUID();
+        UUID ttId = UUID.randomUUID();
+        UUID eventId = UUID.randomUUID();
+        // Reservation belongs to "customer", but request comes with "otro-cliente"
+        Reservation reservation = activeReservation(reservationId, eventId, ttId, now.plusMinutes(10));
+
+        when(orderRepository.findByIdempotencyKey(any())).thenReturn(Mono.empty());
+        when(reservationRepository.findById(reservationId)).thenReturn(Mono.just(reservation));
+
+        StepVerifier.create(useCase.execute(reservationId, "otro-cliente", null))
+                .expectError(BusinessException.class)
                 .verify();
     }
 

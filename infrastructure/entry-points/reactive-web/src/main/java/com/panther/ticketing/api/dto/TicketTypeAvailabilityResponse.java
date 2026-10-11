@@ -10,5 +10,6 @@ public record TicketTypeAvailabilityResponse(
         int totalQuantity,
         int availableCount,
         int reservedCount,
-        int soldCount
+        int soldCount,
+        int complimentaryCount
 ) {}

@@ -7,5 +7,6 @@ public record AvailabilityResponse(
         UUID ticketTypeId,
         int availableCount,
         int reservedCount,
-        int soldCount
+        int soldCount,
+        int complimentaryCount
 ) {}

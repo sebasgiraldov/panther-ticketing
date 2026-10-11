@@ -10,7 +10,7 @@ graph TD
     subgraph domain["Domain (zero framework deps)"]
         model["model\nEvent · Ticket · Reservation\nOrder · AuditLog\nDomainException hierarchy"]
         ports["ports\nports.in → use case interfaces\nports.out → gateway/repository interfaces"]
-        usecase["use-case\nCreateEvent · ReserveTickets\nPurchaseTickets · ProcessOrder\nMarkComplimentary · ReleaseExpired\nGetEvent · CheckAvailability · GetOrderStatus"]
+        usecase["use-case\nCreateEvent · ListEvents · GetEvent\nReserveTickets · PurchaseTickets\nProcessOrder · MarkComplimentary\nReleaseExpired · CheckAvailability · GetOrderStatus"]
     end
 
     subgraph infra["Infrastructure"]
@@ -101,7 +101,31 @@ sequenceDiagram
 
 ---
 
-## 5. Async Purchase Flow (end-to-end)
+## 5. Ticket State Machine — `PENDING_CONFIRMATION` detail
+
+`PENDING_CONFIRMATION` is a **transient internal state** that exists only during `ProcessOrderUseCase` execution. It is never the final observable state of a ticket under normal operation.
+
+```
+POST /api/v1/orders
+  → order: PENDING  (enqueued to SQS, 202 returned immediately)
+
+SQS consumer → ProcessOrderUseCase:
+  order:  PENDING → PROCESSING
+  ticket: RESERVED → PENDING_CONFIRMATION   (conditional write #1)
+  ticket: PENDING_CONFIRMATION → SOLD       (conditional write #2)
+  counter: reservedCount--, soldCount++
+  reservation: ACTIVE → CONFIRMED
+  order:  PROCESSING → CONFIRMED
+
+GET /api/v1/orders/{orderId}
+  → order: CONFIRMED  (tickets already SOLD)
+```
+
+Why two writes instead of one? If the process crashes between write #1 and write #2, the ticket is stuck in `PENDING_CONFIRMATION`. The expiry scheduler only releases `RESERVED` tickets, so it will not accidentally return a partially-processed ticket to `AVAILABLE`. A manual reconciliation or a future `TransactWriteItems` migration would clean this up.
+
+---
+
+## 6. Async Purchase Flow (end-to-end)
 
 ```mermaid
 sequenceDiagram

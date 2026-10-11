@@ -1,6 +1,7 @@
 package com.panther.ticketing.usecase;
 
 import com.panther.ticketing.model.enums.OrderStatus;
+import com.panther.ticketing.model.enums.ReservationStatus;
 import com.panther.ticketing.model.exception.NotFoundException;
 import com.panther.ticketing.model.order.Order;
 import com.panther.ticketing.model.reservation.Reservation;
@@ -40,21 +41,38 @@ public class PurchaseTicketsUseCase implements IPurchaseTickets {
 
     @Override
     public Mono<Order> execute(UUID reservationId, String customerRef, String idempotencyKey) {
-        // The idempotency key is optional on the request. When it is absent we fall
-        // back to the reservationId, which gives one order per reservation and keeps
-        // the idempotencyKey GSI key a non-null String (DynamoDB rejects a NULL key).
+        // Effective key includes customerRef so two different customers cannot
+        // collide on the same reservationId, and a malicious caller cannot retrieve
+        // another customer's order by guessing a reservationId.
         String effectiveKey = (idempotencyKey != null && !idempotencyKey.isBlank())
-                ? idempotencyKey
-                : reservationId.toString();
-        // Idempotency: return existing order if already created for this key
+                ? idempotencyKey + ":" + customerRef
+                : reservationId.toString() + ":" + customerRef;
+
         return orderRepository.findByIdempotencyKey(effectiveKey)
-                .switchIfEmpty(createAndEnqueue(reservationId, customerRef, effectiveKey));
+                .flatMap(existing -> {
+                    if (!existing.customerRef().equals(customerRef)) {
+                        return Mono.error(new BusinessException("Order does not belong to customer: " + customerRef));
+                    }
+                    return Mono.just(existing);
+                })
+                .switchIfEmpty(Mono.defer(() -> createAndEnqueue(reservationId, customerRef, effectiveKey)));
     }
 
     private Mono<Order> createAndEnqueue(UUID reservationId, String customerRef, String idempotencyKey) {
         return reservationRepository.findById(reservationId)
                 .switchIfEmpty(Mono.error(new NotFoundException("Reservation not found: " + reservationId)))
                 .flatMap(reservation -> {
+                    if (!reservation.customerRef().equals(customerRef)) {
+                        return Mono.error(new BusinessException(
+                                "Reservation does not belong to customer: " + customerRef));
+                    }
+                    // A reservation can only be purchased while it is still ACTIVE. A
+                    // reservation that was already finalized — purchased or marked as
+                    // complimentary (CONFIRMED), or EXPIRED — must not be purchasable.
+                    if (reservation.status() != ReservationStatus.ACTIVE) {
+                        return Mono.error(new BusinessException(
+                                "Reservation is not active (status: " + reservation.status() + "): " + reservationId));
+                    }
                     if (reservation.isExpired(timeProvider.now())) {
                         return Mono.error(new BusinessException("Reservation has expired: " + reservationId));
                     }

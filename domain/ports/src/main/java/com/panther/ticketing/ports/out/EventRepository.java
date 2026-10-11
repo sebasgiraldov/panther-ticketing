@@ -10,6 +10,7 @@ import java.util.UUID;
 
 public interface EventRepository {
     Mono<Event> save(Event event);
+    Flux<Event> findAll();
     Mono<Event> findById(UUID id);
     Mono<TicketType> saveTicketType(TicketType ticketType);
     Flux<TicketType> findTicketTypesByEventId(UUID eventId);

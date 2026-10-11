@@ -59,8 +59,8 @@ class ReserveTicketsUseCaseTest {
     @Test
     void execute_happyPath_returnsReservation() {
         TicketType tt = new TicketType(ttId, eventId, "General", BigDecimal.valueOf(50), 5);
-        InventoryCounter counter = new InventoryCounter(eventId, ttId, 5, 0, 0, 0L);
-        InventoryCounter updated = new InventoryCounter(eventId, ttId, 3, 2, 0, 1L);
+        InventoryCounter counter = new InventoryCounter(eventId, ttId, 5, 0, 0, 0, 0L);
+        InventoryCounter updated = new InventoryCounter(eventId, ttId, 3, 2, 0, 0, 1L);
         Ticket t1 = availableTicket(eventId, ttId);
         Ticket t2 = availableTicket(eventId, ttId);
         Ticket reserved1 = t1.reserve("customer", UUID.randomUUID());
@@ -101,7 +101,7 @@ class ReserveTicketsUseCaseTest {
     @Test
     void execute_notEnoughAvailable_throwsBusinessException() {
         TicketType tt = new TicketType(ttId, eventId, "General", BigDecimal.valueOf(50), 5);
-        InventoryCounter counter = new InventoryCounter(eventId, ttId, 1, 4, 0, 0L);
+        InventoryCounter counter = new InventoryCounter(eventId, ttId, 1, 4, 0, 0, 0L);
 
         when(eventRepository.findTicketTypeById(ttId)).thenReturn(Mono.just(tt));
         when(eventRepository.findInventoryCounter(eventId, ttId)).thenReturn(Mono.just(counter));

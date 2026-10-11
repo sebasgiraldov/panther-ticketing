@@ -17,6 +17,7 @@ import software.amazon.awssdk.services.dynamodb.model.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -39,6 +40,23 @@ class EventDynamoAdapterTest {
     @BeforeEach
     void setUp() {
         adapter = new EventDynamoAdapter(client, "events", "ticket-types", "inventory");
+    }
+
+    // --- findAll ---
+
+    @Test
+    void findAll_returnsFluxOfEvents() {
+        Map<String, AttributeValue> item = Map.of(
+                "id", s(eventId.toString()), "name", s("Concert"), "description", s("Desc"),
+                "date", s(formatDateTime(now)), "venue", s("Venue"),
+                "totalCapacity", n(100), "createdAt", s(formatDateTime(now)));
+        when(client.scan(any(ScanRequest.class)))
+                .thenReturn(CompletableFuture.completedFuture(
+                        ScanResponse.builder().items(List.of(item)).build()));
+
+        StepVerifier.create(adapter.findAll())
+                .expectNextMatches(e -> e.name().equals("Concert"))
+                .verifyComplete();
     }
 
     // --- save ---
@@ -189,7 +207,7 @@ class EventDynamoAdapterTest {
 
     @Test
     void saveInventoryCounter_persistsAndReturns() {
-        InventoryCounter counter = new InventoryCounter(eventId, ttId, 10, 0, 0, 0L);
+        InventoryCounter counter = new InventoryCounter(eventId, ttId, 10, 0, 0, 0, 0L);
         when(client.putItem(any(PutItemRequest.class)))
                 .thenReturn(CompletableFuture.completedFuture(PutItemResponse.builder().build()));
 

@@ -17,6 +17,7 @@ public class RouterRest {
     public RouterFunction<ServerResponse> routes(ApiHandler handler) {
         return RouterFunctions.route()
                 .POST(BASE + "/events", handler::createEvent)
+                .GET(BASE + "/events", handler::listEvents)
                 .GET(BASE + "/events/{eventId}", handler::getEvent)
                 .GET(BASE + "/events/{eventId}/availability", handler::checkAvailability)
                 .POST(BASE + "/events/{eventId}/reservations", handler::reserveTickets)

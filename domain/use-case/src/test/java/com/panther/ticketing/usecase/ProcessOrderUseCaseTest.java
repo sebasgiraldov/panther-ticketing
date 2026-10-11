@@ -112,8 +112,8 @@ class ProcessOrderUseCaseTest {
         Ticket pending2 = t2.markPendingConfirmation();
         Ticket sold1 = pending1.confirmSale();
         Ticket sold2 = pending2.confirmSale();
-        InventoryCounter counter = new InventoryCounter(eventId, ttId, 0, 2, 0, 0L);
-        InventoryCounter updated = new InventoryCounter(eventId, ttId, 0, 0, 2, 1L);
+        InventoryCounter counter = new InventoryCounter(eventId, ttId, 0, 2, 0, 0, 0L);
+        InventoryCounter updated = new InventoryCounter(eventId, ttId, 0, 0, 2, 0, 1L);
         Reservation confirmedRes = reservation.confirm();
 
         when(orderRepository.findById(orderId)).thenReturn(Mono.just(pending));
@@ -140,8 +140,8 @@ class ProcessOrderUseCaseTest {
         Order failed = orderWithReservation(orderId, reservationId, OrderStatus.FAILED);
         Reservation expired = activeReservation(reservationId, now.minusMinutes(1));
         Ticket t1 = reservedTicket(reservationId);
-        InventoryCounter counter = new InventoryCounter(eventId, ttId, 0, 1, 0, 0L);
-        InventoryCounter updated = new InventoryCounter(eventId, ttId, 1, 0, 0, 1L);
+        InventoryCounter counter = new InventoryCounter(eventId, ttId, 0, 1, 0, 0, 0L);
+        InventoryCounter updated = new InventoryCounter(eventId, ttId, 1, 0, 0, 0, 1L);
         Reservation expiredRes = expired.expire();
 
         when(orderRepository.findById(orderId)).thenReturn(Mono.just(pending));

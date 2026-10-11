@@ -114,12 +114,20 @@ DynamoDB tables and SQS queues before the app starts. Compose loads `.env` autom
 `env_file`.
 
 ```bash
-# Build the app image + start everything (dynamodb-local, sqs, dynamodb-admin, init, app)
-podman compose up --build
+podman machine start          # start the Podman VM (macOS/Windows only — skip if already running)
+podman compose up --build     # build image + start all services
 ```
 
 Startup order is enforced by `depends_on` conditions:
 `dynamodb-local` + `sqs` become healthy → `init-resources` creates tables/queues and exits → `app` starts.
+
+To stop and reset everything:
+
+```bash
+podman compose down
+```
+
+> DynamoDB Local runs `-inMemory` — data resets on `down`. The next `up` starts with empty tables.
 
 Service endpoints once up:
 
@@ -134,13 +142,12 @@ Service endpoints once up:
 
 Useful for fast iteration on the app code.
 
-Start only the infra + provisioning (same on every OS):
-
 ```bash
-podman compose up dynamodb-local sqs dynamodb-admin init-resources
+podman machine start          # start the Podman VM if not already running
+podman compose up -d dynamodb-local sqs dynamodb-admin init-resources
 ```
 
-Then run the app on the host. The app reads `.env` automatically on startup (via `spring-dotenv`):
+Then run the app on the host:
 
 **macOS / Linux**
 
@@ -154,7 +161,7 @@ Then run the app on the host. The app reads `.env` automatically on startup (via
 .\gradlew.bat :app-service:bootRun
 ```
 
-To stop and reset everything (DynamoDB Local runs `-inMemory`, so data resets):
+To stop the infra:
 
 ```bash
 podman compose down
@@ -175,6 +182,7 @@ resets on `podman compose down` and the init container recreates a clean environ
 | Method | Path | Description |
 |---|---|---|
 | POST | `/api/v1/events` | Create event with ticket types |
+| GET | `/api/v1/events` | List all events with availability |
 | GET | `/api/v1/events/{eventId}` | Get event |
 | GET | `/api/v1/events/{eventId}/availability?ticketTypeId=` | Real-time availability (req 4.7) |
 | POST | `/api/v1/events/{eventId}/reservations` | Reserve tickets — 10 min hold (req 4.2) |
@@ -212,19 +220,57 @@ curl --location 'http://localhost:8080/api/v1/events' \
   }'
 ```
 
-**2. Get the event**
+**2. List all events** — returns every event with its ticket types and current availability counters.
+
+```bash
+curl --location 'http://localhost:8080/api/v1/events'
+```
+
+Response (array):
+```json
+[
+  {
+    "id": "{eventId}",
+    "name": "Concierto Panther",
+    "ticketTypes": [
+      {
+        "id": "{ticketTypeId}",
+        "name": "General",
+        "availableCount": 10,
+        "reservedCount": 0,
+        "soldCount": 0,
+        "complimentaryCount": 0
+      }
+    ]
+  }
+]
+```
+
+**3. Get the event**
 
 ```bash
 curl --location 'http://localhost:8080/api/v1/events/{eventId}'
 ```
 
-**3. Check availability** — right after creation the counter reads `available=10, reserved=0, sold=0`.
+**4. Check availability** — right after creation the counter reads `available=10, reserved=0, sold=0, complimentary=0`.
 
 ```bash
 curl --location 'http://localhost:8080/api/v1/events/{eventId}/availability?ticketTypeId={ticketTypeId}'
 ```
 
-**4. Reserve 2 tickets** — 10-minute hold. The response includes a `reservationId`.
+Response:
+```json
+{
+  "eventId": "{eventId}",
+  "ticketTypeId": "{ticketTypeId}",
+  "availableCount": 10,
+  "reservedCount": 0,
+  "soldCount": 0,
+  "complimentaryCount": 0
+}
+```
+
+**5. Reserve 2 tickets** — 10-minute hold. The response includes a `reservationId`.
 
 ```bash
 curl --location 'http://localhost:8080/api/v1/events/{eventId}/reservations' \
@@ -238,7 +284,8 @@ curl --location 'http://localhost:8080/api/v1/events/{eventId}/reservations' \
 
 After reserving 2, availability transitions to `available=8, reserved=2, sold=0`.
 
-**5. Purchase** — enqueues the order and returns an `orderId` immediately (processed async).
+**6. Purchase** — enqueues the order and returns an `orderId` immediately (processed async).
+The `idempotencyKey` is optional — if omitted, the system uses `reservationId + customerRef` as the key.
 
 ```bash
 curl --location 'http://localhost:8080/api/v1/orders' \
@@ -249,13 +296,15 @@ curl --location 'http://localhost:8080/api/v1/orders' \
   }'
 ```
 
-Once the consumer confirms the order, availability becomes `available=8, reserved=0, sold=2`.
+Once the consumer confirms the order, availability becomes `available=8, reserved=0, sold=2, complimentary=0`.
 
-**6. Check order status**
+**7. Check order status**
 
 ```bash
 curl --location 'http://localhost:8080/api/v1/orders/{orderId}'
 ```
+
+> **Order and ticket states after purchase:** `POST /api/v1/orders` returns immediately with `status: PENDING`. The SQS consumer processes the order asynchronously: it transitions the order `PENDING → PROCESSING → CONFIRMED` and each ticket `RESERVED → PENDING_CONFIRMATION → SOLD`. `PENDING_CONFIRMATION` is a transient internal state — under normal operation you will never observe it via the API. Poll `GET /api/v1/orders/{orderId}` until `status` is `CONFIRMED`.
 
 ### Alternate ending: complimentary (free) tickets
 
@@ -278,9 +327,9 @@ curl --location 'http://localhost:8080/api/v1/events/{eventId}/complimentary' \
 ```
 
 This transitions the reservation's tickets `RESERVED → COMPLIMENTARY`, finalizes the reservation to
-`CONFIRMED`, and **decrements `reservedCount` only** — `availableCount` and `soldCount` are
+`CONFIRMED`, and **decrements `reservedCount` and increments `complimentaryCount`** — `availableCount` and `soldCount` are
 untouched, so a complimentary is **not** a sale. From the fresh reserve of 2
-(`available=8, reserved=2, sold=0`) the counter becomes `available=8, reserved=0, sold=0`.
+(`available=8, reserved=2, sold=0, complimentary=0`) the counter becomes `available=8, reserved=0, sold=0, complimentary=2`.
 
 ## AWS Deployment (production)
 
