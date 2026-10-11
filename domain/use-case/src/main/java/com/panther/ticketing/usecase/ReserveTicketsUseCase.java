@@ -15,6 +15,8 @@ import com.panther.ticketing.ports.out.EventRepository;
 import com.panther.ticketing.ports.out.ReservationRepository;
 import com.panther.ticketing.ports.out.TicketRepository;
 import com.panther.ticketing.ports.out.TimeProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
@@ -24,6 +26,8 @@ import java.util.List;
 import java.util.UUID;
 
 public class ReserveTicketsUseCase implements IReserveTickets {
+
+    private static final Logger log = LoggerFactory.getLogger(ReserveTicketsUseCase.class);
 
     private final EventRepository eventRepository;
     private final TicketRepository ticketRepository;
@@ -59,9 +63,9 @@ public class ReserveTicketsUseCase implements IReserveTickets {
         }
         return eventRepository.findTicketTypeById(ticketTypeId)
                 .switchIfEmpty(Mono.error(new BusinessException("TicketType not found: " + ticketTypeId)))
-                .flatMap(ticketType -> reserveWithRetry(eventId, ticketTypeId, quantity, customerRef, ticketType))
-                .retryWhen(Retry.backoff(maxRetries, Duration.ofMillis(retryBackoffMs))
-                        .filter(ex -> ex instanceof ConflictException));
+                .flatMap(ticketType -> Mono.defer(() -> reserveWithRetry(eventId, ticketTypeId, quantity, customerRef, ticketType))
+                        .retryWhen(Retry.backoff(maxRetries, Duration.ofMillis(retryBackoffMs))
+                                .filter(ex -> ex instanceof ConflictException && ex.getMessage().contains("Inventory conditional check"))));
     }
 
     private Mono<Reservation> reserveWithRetry(UUID eventId, UUID ticketTypeId, int quantity,
@@ -73,7 +77,33 @@ public class ReserveTicketsUseCase implements IReserveTickets {
                     }
                     return eventRepository.decrementAvailableIncrementReserved(eventId, ticketTypeId, quantity, counter.version());
                 })
-                .flatMap(updatedCounter -> reserveTickets(eventId, ticketTypeId, quantity, customerRef));
+                // The counter is now durably decremented. If ticket selection/persistence
+                // fails after this point, compensate by releasing the counter (reserved -= qty,
+                // available += qty), then propagate the ORIGINAL error. The compensation is
+                // scoped to reserveTickets only, so guard failures above (not-enough /
+                // "Inventory conditional check" conflicts) are never compensated and the
+                // retry on "Inventory conditional check" still fires upstream.
+                .flatMap(updatedCounter -> reserveTickets(eventId, ticketTypeId, quantity, customerRef)
+                        .onErrorResume(err -> compensateReservation(eventId, ticketTypeId, quantity, err)));
+    }
+
+    /**
+     * Compensating action for BUG 2: a reservation whose counter was already decremented but
+     * whose ticket selection/persistence failed. Reads the FRESH counter version (a retry or
+     * concurrent write may have bumped it) and performs the release conditional write, mirroring
+     * the expiry path. If the compensation itself fails it is logged and swallowed so the ORIGINAL
+     * error wins; the expiry scheduler reconciles any residue (same accepted trade-off as release).
+     */
+    private Mono<Reservation> compensateReservation(UUID eventId, UUID ticketTypeId, int quantity, Throwable originalError) {
+        return eventRepository.findInventoryCounter(eventId, ticketTypeId)
+                .flatMap(fresh -> eventRepository.decrementReservedIncrementAvailable(
+                        eventId, ticketTypeId, quantity, fresh.version()))
+                .onErrorResume(compErr -> {
+                    log.warn("Failed to compensate counter after reservation failure for event={} ticketType={}: {}",
+                            eventId, ticketTypeId, compErr.getMessage());
+                    return Mono.empty();
+                })
+                .then(Mono.error(originalError));
     }
 
     private Mono<Reservation> reserveTickets(UUID eventId, UUID ticketTypeId, int quantity, String customerRef) {

@@ -63,7 +63,7 @@ resource "aws_dynamodb_table" "tickets" {
   }
 
   attribute {
-    name = "ticketTypeId"
+    name = "ticketTypeStatus"
     type = "S"
   }
 
@@ -72,11 +72,14 @@ resource "aws_dynamodb_table" "tickets" {
     type = "S"
   }
 
-  # GSI for ReserveTicketsUseCase: find AVAILABLE tickets by event+type
+  # GSI for ReserveTicketsUseCase: find AVAILABLE tickets by event+type+status.
+  # Range key ticketTypeStatus = "<ticketTypeId>#<status>" encodes status into the
+  # key so candidate selection queries by key with no filter (avoids the
+  # DynamoDB Limit-before-filter false-shortage bug).
   global_secondary_index {
-    name            = "eventId-ticketTypeId-status-index"
+    name            = "eventId-ticketTypeStatus-index"
     hash_key        = "eventId"
-    range_key       = "ticketTypeId"
+    range_key       = "ticketTypeStatus"
     projection_type = "ALL"
   }
 

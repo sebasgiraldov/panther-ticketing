@@ -62,23 +62,24 @@ create_simple_table "panther-events"
 create_simple_table "panther-reservations"
 create_simple_table "panther-audit"
 
-# tickets: PK id (S) + GSI "eventId-ticketTypeId-status-index" (hash eventId,
-# range ticketTypeId — status is applied as a filter expression, not a key) +
+# tickets: PK id (S) + GSI "eventId-ticketTypeStatus-index" (hash eventId,
+# range ticketTypeStatus = "<ticketTypeId>#<status>" — status is part of the
+# GSI range key so candidate selection queries by key with no post-filter) +
 # GSI "reservationId-index" (hash reservationId).
 if table_exists "panther-tickets"; then
   echo "    [skip] table panther-tickets already exists"
 else
-  echo "    [create] table panther-tickets (PK: id, GSIs: eventId-ticketTypeId-status-index, reservationId-index)"
+  echo "    [create] table panther-tickets (PK: id, GSIs: eventId-ticketTypeStatus-index, reservationId-index)"
   $DDB create-table \
     --table-name "panther-tickets" \
     --attribute-definitions \
         AttributeName=id,AttributeType=S \
         AttributeName=eventId,AttributeType=S \
-        AttributeName=ticketTypeId,AttributeType=S \
+        AttributeName=ticketTypeStatus,AttributeType=S \
         AttributeName=reservationId,AttributeType=S \
     --key-schema AttributeName=id,KeyType=HASH \
     --global-secondary-indexes \
-        'IndexName=eventId-ticketTypeId-status-index,KeySchema=[{AttributeName=eventId,KeyType=HASH},{AttributeName=ticketTypeId,KeyType=RANGE}],Projection={ProjectionType=ALL}' \
+        'IndexName=eventId-ticketTypeStatus-index,KeySchema=[{AttributeName=eventId,KeyType=HASH},{AttributeName=ticketTypeStatus,KeyType=RANGE}],Projection={ProjectionType=ALL}' \
         'IndexName=reservationId-index,KeySchema=[{AttributeName=reservationId,KeyType=HASH}],Projection={ProjectionType=ALL}' \
     --billing-mode PAY_PER_REQUEST >/dev/null
 fi

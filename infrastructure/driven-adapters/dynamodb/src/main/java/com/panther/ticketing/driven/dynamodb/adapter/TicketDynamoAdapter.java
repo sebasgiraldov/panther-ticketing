@@ -59,20 +59,24 @@ public class TicketDynamoAdapter implements TicketRepository {
     @Override
     public Flux<Ticket> findByEventIdAndTicketTypeIdAndStatus(UUID eventId, UUID ticketTypeId,
                                                                TicketStatus status, int limit) {
+        // status is part of the GSI range key (ticketTypeStatus = "<ticketTypeId>#<status>"),
+        // so a key-only Query returns rows that already match the requested status. The
+        // Limit is now a true cap: every returned row qualifies, so DynamoDB's Limit-before-
+        // filter pitfall cannot cause a false shortage. The conditional write on each ticket
+        // remains the authoritative guard; this is just the candidate selection.
         QueryRequest req = QueryRequest.builder()
                 .tableName(table)
-                .indexName("eventId-ticketTypeId-status-index")
-                .keyConditionExpression("eventId = :eid AND ticketTypeId = :ttid")
-                .filterExpression("#s = :status")
-                .expressionAttributeNames(Map.of("#s", "status"))
+                .indexName("eventId-ticketTypeStatus-index")
+                .keyConditionExpression("eventId = :eid AND ticketTypeStatus = :tts")
                 .expressionAttributeValues(Map.of(
                         ":eid", s(eventId.toString()),
-                        ":ttid", s(ticketTypeId.toString()),
-                        ":status", s(status.name())))
+                        ":tts", s(ticketTypeId.toString() + "#" + status.name())))
                 .limit(limit)
                 .build();
         return Mono.fromFuture(() -> client.query(req))
-                .flatMapMany(resp -> Flux.fromIterable(resp.items()).map(this::mapToTicket));
+                .flatMapMany(resp -> Flux.fromIterable(resp.items())
+                        .map(this::mapToTicket)
+                        .take(limit));
     }
 
     @Override
@@ -96,11 +100,12 @@ public class TicketDynamoAdapter implements TicketRepository {
         return Mono.fromFuture(() -> client.updateItem(UpdateItemRequest.builder()
                         .tableName(table)
                         .key(Map.of("id", s(ticket.id().toString())))
-                        .updateExpression("SET #s = :newStatus, ownerRef = :owner, reservationId = :rid, #v = :newVersion, updatedAt = :updatedAt")
+                        .updateExpression("SET #s = :newStatus, ticketTypeStatus = :tts, ownerRef = :owner, reservationId = :rid, #v = :newVersion, updatedAt = :updatedAt")
                         .conditionExpression("#s = :expectedStatus AND #v = :expectedVersion")
                         .expressionAttributeNames(Map.of("#s", "status", "#v", "version"))
                         .expressionAttributeValues(Map.of(
                                 ":newStatus", s(ticket.status().name()),
+                                ":tts", s(ticket.ticketTypeId().toString() + "#" + ticket.status().name()),
                                 ":expectedStatus", s(expectedStatus.name()),
                                 ":expectedVersion", n(ticket.version()),
                                 ":newVersion", n(updated.version()),
@@ -119,6 +124,7 @@ public class TicketDynamoAdapter implements TicketRepository {
         item.put("eventId", s(t.eventId().toString()));
         item.put("ticketTypeId", s(t.ticketTypeId().toString()));
         item.put("status", s(t.status().name()));
+        item.put("ticketTypeStatus", s(t.ticketTypeId().toString() + "#" + t.status().name()));
         item.put("price", n(t.price()));
         item.put("version", n(t.version()));
         if (t.seatNumber() != null) item.put("seatNumber", s(t.seatNumber()));
